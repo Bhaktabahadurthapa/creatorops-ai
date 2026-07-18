@@ -15,3 +15,14 @@
 - Added dashboard, projects, and create-project routes.
 - Confirmed the frontend runs locally.
 - Saved screenshots as development proof.
+
+
+## July 18, 2026
+
+- Created the FastAPI backend.
+- Added a backend health-check endpoint.
+- Added the script-generation API endpoint.
+- Connected the Next.js frontend to FastAPI.
+- Built the Create Video form.
+- Successfully generated and displayed a sample script.
+

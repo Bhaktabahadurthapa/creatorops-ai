@@ -70,7 +70,6 @@ export default function Home() {
           >
             Create Your First Video
           </Link>
-
           <Link
             href="/dashboard"
             className="rounded-xl border border-slate-700 px-6 py-3 font-semibold hover:bg-slate-900"
