@@ -26,3 +26,11 @@
 - Built the Create Video form.
 - Successfully generated and displayed a sample script.
 
+
+## July 19, 2026
+
+- Replaced the sample script template with OpenAI-powered generation.
+- Added structured title, hook, narration, scenes, and call-to-action output.
+- Updated the Create page to display structured scene details.
+- Added backend tests.
+- Confirmed backend tests, frontend lint, and production build pass.
