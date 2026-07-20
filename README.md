@@ -645,6 +645,19 @@ Codex supported the development workflow by helping to:
 
 ---
 
+## Deployment
+
+The Next.js frontend can be deployed to Vercel through the included production
+GitHub Action. The FastAPI, XTTS, and FFmpeg backend must be hosted separately
+and exposed through HTTPS before the deployed frontend can generate scripts,
+voice, or video.
+
+See [Deploying CreatorOps AI with Vercel](docs/VERCEL_DEPLOYMENT.md) for the
+required Vercel project settings, GitHub secrets, backend URL, safety switch,
+and deployment workflow.
+
+---
+
 ## Roadmap
 
 ### Phase 1: Completed local MVP
@@ -669,9 +682,9 @@ Codex supported the development workflow by helping to:
 - [x] Add screenshots
 - [x] Add architecture image to repository
 - [ ] Record demo video
-- [ ] Add GitHub Actions
+- [x] Add GitHub Actions
 - [ ] Improve landing-page demo content
-- [ ] Add deployment documentation
+- [x] Add deployment documentation
 
 ### Phase 3: Production backend
 

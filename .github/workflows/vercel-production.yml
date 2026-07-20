@@ -1,0 +1,79 @@
+name: Deploy frontend to Vercel
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/vercel-production.yml"
+      - "frontend/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+jobs:
+  deploy-production:
+    if: ${{ vars.VERCEL_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Verify deployment configuration
+        shell: bash
+        run: |
+          missing=0
+          for secret_name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!secret_name}" ]; then
+              echo "::error::Missing required GitHub Actions secret: ${secret_name}"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Lint frontend
+        run: npm --prefix frontend run lint
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel production settings
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build Vercel artifacts
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy production artifacts
+        id: deploy
+        shell: bash
+        run: |
+          deployment_url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "url=${deployment_url}" >> "$GITHUB_OUTPUT"
+          echo "### CreatorOps AI production deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "${deployment_url}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show production URL
+        run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
