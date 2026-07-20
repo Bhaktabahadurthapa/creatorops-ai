@@ -21,6 +21,7 @@ frontend/.next/
 # Generated media
 backend/private/
 backend/outputs/
+backend/uploads/
 outputs/
 *.wav
 *.mp3

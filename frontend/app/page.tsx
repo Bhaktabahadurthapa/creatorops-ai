@@ -8,13 +8,11 @@ const features = [
   },
   {
     title: "AI Voiceover",
-    description:
-      "Generate a natural voiceover from your approved script.",
+    description: "Generate a natural voiceover from your approved script.",
   },
   {
     title: "Smart Media Matching",
-    description:
-      "Match images and video clips with every scene automatically.",
+    description: "Match images and video clips with every scene automatically.",
   },
   {
     title: "Automatic Subtitles",
@@ -27,9 +25,13 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-        <div className="text-xl font-bold">
+        <Link
+          href="/"
+          aria-label="CreatorOps AI home"
+          className="cursor-pointer rounded-md text-xl font-bold outline-none transition hover:text-white focus-visible:ring-2 focus-visible:ring-violet-400"
+        >
           CreatorOps <span className="text-violet-400">AI</span>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-4">
           <Link

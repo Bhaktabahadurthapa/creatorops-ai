@@ -1,10 +1,14 @@
 {
   "name": "creatorops-ai",
   "private": true,
+  "packageManager": "pnpm@10.27.0",
   "scripts": {
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "start": "npm --prefix frontend run start"
+  },
+  "dependencies": {
+    "hyperframes": "0.7.64"
   }
 }
