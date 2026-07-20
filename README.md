@@ -1,14 +1,54 @@
-# CreatorOps AI
+<p align="center">
+  <img src="docs/images/creatorops-ai-logo.svg" width="112" alt="CreatorOps AI logo">
+</p>
 
-**Your idea. Your voice. Your finished video.**
+<h1 align="center">CreatorOps AI</h1>
 
-Turn one concept into a structured script, authorized narration, animated scenes, subtitles, and an export-ready HD video.
+<p align="center"><strong>Your idea. Your voice. Your finished video.</strong></p>
 
-CreatorOps AI is a local-first, full-stack AI video production platform built with Next.js, FastAPI, OpenAI, XTTS, HyperFrames, and FFmpeg.
+<p align="center">
+  Turn one concept into a structured script, authorized narration, animated scenes,<br>
+  subtitles, and an export-ready HD video.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-8b5cf6" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/Next.js-16-020617" alt="Next.js 16">
+  <img src="https://img.shields.io/badge/FastAPI-Python_3.10%2B-009688" alt="FastAPI and Python 3.10 or newer">
+  <img src="https://img.shields.io/badge/OpenAI-Responses_API-10a37f" alt="OpenAI Responses API">
+  <img src="https://img.shields.io/badge/video-FFmpeg-007808" alt="FFmpeg video rendering">
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#how-to-run-locally">Quick start</a> ·
+  <a href="#testing">Testing</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="SECURITY.md">Security</a>
+</p>
+
+CreatorOps AI is a local-first, full-stack AI video production platform built
+with Next.js, FastAPI, OpenAI, XTTS, HyperFrames, and FFmpeg. It brings the
+complete idea-to-video workflow into one focused creator experience.
+
+| Start with | CreatorOps AI handles | Export |
+| --- | --- | --- |
+| An idea, platform, tone, and duration | Script, authorized narration, scene timing, motion, media, and subtitles | 720p or 1080p MP4 plus SRT |
+
+> [!IMPORTANT]
+> CreatorOps AI is currently a local-first MVP. Private voice references,
+> uploaded media, API keys, and generated outputs remain on the local machine
+> and are excluded from Git.
 
 ---
 
-## Problem
+## Why CreatorOps AI
+
+<details>
+<summary><strong>See the production problem this project solves</strong></summary>
+
+<br>
 
 ### What is the problem?
 
@@ -53,6 +93,8 @@ CreatorOps AI is a local-first, full-stack AI video production platform built wi
 6. Synchronize visuals with audio.
 7. Add transitions, logo, and music.
 8. Export and organize the final files.
+
+</details>
 
 ---
 
