@@ -602,6 +602,49 @@ Suggested length: 2–3 minutes.
 
 ---
 
+## OpenAI Build Week
+
+CreatorOps AI was substantially developed during OpenAI Build Week.
+
+### How GPT-5.6 is used
+
+GPT-5.6 generates a validated production blueprint containing:
+
+- Title
+- Hook
+- Narration
+- Call to action
+- Sequential scenes
+- Visual directions
+- Subtitle text
+- Duration for every scene
+
+The structured output becomes the source of truth for voice generation,
+scene composition, subtitle timing, and final rendering.
+
+### How Codex was used
+
+Codex supported the development workflow by helping to:
+
+- Build and connect the Next.js and FastAPI applications
+- Integrate structured OpenAI responses
+- Adapt the authorized XTTS voice module
+- Adapt and improve the FFmpeg rendering pipeline
+- Implement upload validation and path security
+- Add image motion, transitions, and generated scenes
+- Add backend tests and frontend validation
+- Diagnose local rendering issues
+- Improve documentation and repository presentation
+
+### Build evidence
+
+- Dated Git commits
+- Pull requests for voice and video integrations
+- [`docs/BUILD_WEEK_CHANGELOG.md`](docs/BUILD_WEEK_CHANGELOG.md)
+- Automated and real local rendering tests
+
+---
+
 ## Roadmap
 
 ### Phase 1: Completed local MVP
@@ -623,7 +666,7 @@ Suggested length: 2–3 minutes.
 
 ### Phase 2: Submission and presentation
 
-- [ ] Add screenshots
+- [x] Add screenshots
 - [x] Add architecture image to repository
 - [ ] Record demo video
 - [ ] Add GitHub Actions
