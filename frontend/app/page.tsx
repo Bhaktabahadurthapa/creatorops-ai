@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { BRAND_DESCRIPTION } from "@/lib/brand";
+
 const features = [
   {
     title: "AI Script Writer",
@@ -56,13 +58,12 @@ export default function Home() {
         </div>
 
         <h1 className="max-w-4xl text-5xl font-bold tracking-tight sm:text-7xl">
-          From idea to finished video with{" "}
-          <span className="text-violet-400">one AI workflow</span>
+          Your idea. Your voice.{" "}
+          <span className="text-violet-400">Your finished video.</span>
         </h1>
 
         <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-          CreatorOps AI transforms your idea into a script, voiceover,
-          synchronized media, subtitles, and a publication-ready video.
+          {BRAND_DESCRIPTION}
         </p>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">

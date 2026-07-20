@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { BRAND_DESCRIPTION, BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,9 +16,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CreatorOps AI",
-  description:
-    "Turn ideas into scripts, voiceovers, subtitles, and finished videos.",
+  applicationName: BRAND_NAME,
+  title: BRAND_NAME,
+  description: BRAND_DESCRIPTION,
+  openGraph: {
+    title: `${BRAND_NAME} — ${BRAND_TAGLINE}`,
+    description: BRAND_DESCRIPTION,
+    siteName: BRAND_NAME,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: `${BRAND_NAME} — ${BRAND_TAGLINE}`,
+    description: BRAND_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

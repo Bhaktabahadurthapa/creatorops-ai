@@ -1,6 +1,7 @@
 {
   "name": "frontend",
   "version": "0.1.0",
+  "description": "Turn one concept into a structured script, authorized narration, animated scenes, subtitles, and an export-ready HD video.",
   "private": true,
   "scripts": {
     "dev": "next dev",

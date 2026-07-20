@@ -1,6 +1,8 @@
 # CreatorOps AI
 
-**Turn one content idea into a structured script, authorized voice narration, animated scenes, subtitles, and a downloadable 720p or 1080p video.**
+**Your idea. Your voice. Your finished video.**
+
+Turn one concept into a structured script, authorized narration, animated scenes, subtitles, and an export-ready HD video.
 
 CreatorOps AI is a local-first, full-stack AI video production platform built with Next.js, FastAPI, OpenAI, XTTS, HyperFrames, and FFmpeg.
 

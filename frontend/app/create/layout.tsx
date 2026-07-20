@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 
+import { BRAND_DESCRIPTION } from "@/lib/brand";
+
 export const metadata: Metadata = {
-  description:
-    "Create a structured video script, authorized narration, animated scenes, subtitles, and a final MP4 with CreatorOps AI.",
+  description: BRAND_DESCRIPTION,
 };
 
 export default function CreateLayout({

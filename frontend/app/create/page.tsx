@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import { BRAND_DESCRIPTION } from "@/lib/brand";
 import {
   getLocalProject,
   saveLocalProject,
@@ -656,7 +657,7 @@ export default function CreatePage() {
         <h1 className="mt-3 text-4xl font-bold">Create a New Video</h1>
 
         <p className="mt-3 text-slate-400">
-          Enter your idea and generate the first version of your video script.
+          {BRAND_DESCRIPTION}
         </p>
 
         <form

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { BRAND_DESCRIPTION, BRAND_TAGLINE } from "@/lib/brand";
 import {
   PROJECT_STATUSES,
   deleteLocalProject,
@@ -198,8 +199,8 @@ export default function ProjectsClient() {
               Your ideas, moving toward publish.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
-              Scripts, narration, and final exports saved privately in this
-              browser. No account or cloud database required.
+              {BRAND_TAGLINE} Scripts, narration, and final exports stay
+              private in this browser. No account or cloud database required.
             </p>
           </div>
 
@@ -290,8 +291,8 @@ export default function ProjectsClient() {
               No projects yet
             </h2>
             <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
-              Start with an idea. Your script, narration, and finished video
-              will appear here as the project moves through production.
+              {BRAND_DESCRIPTION} Your project will appear here as it moves
+              through production.
             </p>
             <Link
               href="/create"

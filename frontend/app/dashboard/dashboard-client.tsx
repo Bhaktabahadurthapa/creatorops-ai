@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { BRAND_TAGLINE } from "@/lib/brand";
 import {
   readLocalProjects,
   withDownloadParameter,
@@ -129,8 +130,8 @@ export default function DashboardClient() {
               Keep every video moving.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
-              A local overview of scripts, voice tracks, and finished exports
-              saved in this browser.
+              {BRAND_TAGLINE} Track scripts, voice tracks, and finished exports
+              saved locally in this browser.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

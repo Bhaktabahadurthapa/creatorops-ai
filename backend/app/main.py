@@ -63,7 +63,14 @@ MediaProbe = Callable[[Path], tuple[set[str], float | None]]
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".m4v", ".webm", ".avi"}
 
-app = FastAPI(title="CreatorOps AI API")
+app = FastAPI(
+    title="CreatorOps AI API",
+    description=(
+        "Your idea. Your voice. Your finished video. "
+        "Turn one concept into a structured script, authorized narration, "
+        "animated scenes, subtitles, and an export-ready HD video."
+    ),
+)
 
 app.add_middleware(
     CORSMiddleware,

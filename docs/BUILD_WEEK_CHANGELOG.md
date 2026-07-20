@@ -69,6 +69,9 @@
 
 ## July 20, 2026
 
+- Established the CreatorOps AI brand promise, “Your idea. Your voice. Your
+  finished video.”, and aligned website, API, package, social, and repository
+  descriptions around the complete idea-to-HD-video workflow.
 - Inspected the private `my_project` video mixer repository in read-only mode.
 - Adapted only its reusable FFmpeg timing, scene normalization, clip looping,
   concatenation, narration muxing, and MP4 export concepts into a scoped video
