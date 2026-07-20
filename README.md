@@ -23,6 +23,7 @@
   <a href="#system-flow">System flow</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
+  <a href="#screenshots">Screenshots</a> ·
   <a href="#how-to-run-locally">Quick start</a> ·
   <a href="#testing">Testing</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
@@ -555,25 +556,20 @@ npm run build
 
 ## Screenshots
 
-> Screenshots will be added later.
+Selected proof from the OpenAI, authorized-voice, and FFmpeg implementation
+workflow. Select any image to view it at full resolution.
 
-Planned screenshots:
+| OpenAI script integration | API contract and security validation |
+| --- | --- |
+| [![OpenAI Responses API and structured scene implementation](docs/images/screenshots/openai-script-integration.png)](docs/images/screenshots/openai-script-integration.png) | [![API contract, structured fields, mocked OpenAI tests, and security validation](docs/images/screenshots/api-security-validation.png)](docs/images/screenshots/api-security-validation.png) |
 
-- Landing page
-- Create workflow
-- Structured script and scene plan
-- Authorized voice player
-- Media assignment
-- Motion settings
-- Final MP4 preview
-- Projects page
-- Dashboard
+| Authorized voice integration | Video renderer implementation |
+| --- | --- |
+| [![Authorized custom voice service integration](docs/images/screenshots/authorized-voice-integration.png)](docs/images/screenshots/authorized-voice-integration.png) | [![FFmpeg renderer implementation and build-week progress](docs/images/screenshots/video-renderer-implementation.png)](docs/images/screenshots/video-renderer-implementation.png) |
 
-Suggested location:
-
-```text
-docs/images/
-```
+| Video rendering validation | Final project audit |
+| --- | --- |
+| [![FFmpeg rendering verification, tests, and known risks](docs/images/screenshots/video-renderer-validation.png)](docs/images/screenshots/video-renderer-validation.png) | [![Final secret audit and real rendering verification](docs/images/screenshots/final-project-audit.png)](docs/images/screenshots/final-project-audit.png) |
 
 ---
 
