@@ -20,6 +20,7 @@
 </p>
 
 <p align="center">
+  <a href="#system-flow">System flow</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#how-to-run-locally">Quick start</a> ·
@@ -27,6 +28,16 @@
   <a href="CONTRIBUTING.md">Contributing</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
+
+## System flow
+
+<p align="center">
+  <a href="docs/images/creatorops-ai-system-flow.png">
+    <img src="docs/images/creatorops-ai-system-flow.png" width="100%" alt="CreatorOps AI end-to-end system flow from user input through script, voice, media, video rendering, and project output">
+  </a>
+</p>
+
+<p align="center"><sub>Idea → Script → Voice → Media → Video → Project</sub></p>
 
 CreatorOps AI is a local-first, full-stack AI video production platform built
 with Next.js, FastAPI, OpenAI, XTTS, HyperFrames, and FFmpeg. It brings the
