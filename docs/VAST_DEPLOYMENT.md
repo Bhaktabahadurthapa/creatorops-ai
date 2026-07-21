@@ -13,17 +13,25 @@ From the repository root, build an AMD64 image for Vast.ai:
 docker buildx build \
   --platform linux/amd64 \
   --file Dockerfile.backend \
-  --tag ghcr.io/bhaktabahadurthapa/creatorops-ai-backend:deploy-production \
+  --tag lishan2023/creatorops-ai-backend:deploy-production \
   --push \
   .
 ```
 
-Authenticate to GHCR or another Docker registry before pushing. Do not place a
-registry token, OpenAI key, or private voice recording in the image.
+Authenticate to Docker Hub before pushing. Do not place a registry token,
+OpenAI key, or private voice recording in the image.
+
+The GitHub Actions workflow publishes this image to Docker Hub. Configure these
+repository settings before running it:
+
+- Variable `DOCKERHUB_USERNAME`: `lishan2023`
+- Secret `DOCKERHUB_TOKEN`: a Docker Hub personal access token with permission
+  to push this repository
 
 ## Configure the instance
 
-Create a Vast.ai GPU instance from the pushed image, then configure:
+Create a Vast.ai GPU instance from
+`lishan2023/creatorops-ai-backend:latest`, then configure:
 
 - Exposed HTTP port: `8000`
 - Docker port option: `-p 8000:8000`
