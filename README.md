@@ -30,9 +30,13 @@
 
 ## Demo
 
-[![Watch the CreatorOps AI demo](https://img.youtube.com/vi/cPOUEL0nrMI/maxresdefault.jpg)](https://youtu.be/cPOUEL0nrMI)
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=cPOUEL0nrMI&autoplay=1">
+    <img src="https://img.youtube.com/vi/cPOUEL0nrMI/maxresdefault.jpg" width="100%" alt="Play the CreatorOps AI demo video">
+  </a>
+</p>
 
-**YouTube:** https://youtu.be/cPOUEL0nrMI
+<p align="center"><sub>▶ Click the preview to play the demo</sub></p>
 
 **Live frontend:** https://creatorops-ai-one.vercel.app
 
