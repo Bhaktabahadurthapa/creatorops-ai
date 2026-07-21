@@ -13,6 +13,7 @@
 
 <p align="center">
   <a href="https://creatorops-ai-one.vercel.app"><strong>Live Frontend</strong></a> ·
+  <a href="https://www.youtube.com/watch?v=O24Lz3XZa3k&amp;autoplay=1"><strong>Demo Video</strong></a> ·
   <a href="docs/VAST_DEPLOYMENT.md">GPU Backend Guide</a>
 </p>
 
@@ -24,6 +25,18 @@
   <img src="https://img.shields.io/badge/voice-Chatterbox_Turbo-7c3aed" alt="Chatterbox Turbo">
   <img src="https://img.shields.io/badge/video-FFmpeg-007808" alt="FFmpeg video rendering">
 </p>
+
+---
+
+## Demo
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=O24Lz3XZa3k&amp;autoplay=1">
+    <img src="https://img.youtube.com/vi/O24Lz3XZa3k/maxresdefault.jpg" width="100%" alt="Play the CreatorOps AI demo on YouTube">
+  </a>
+</p>
+
+<p align="center"><sub>▶ Click the preview to play the demo on YouTube</sub></p>
 
 ---
 
