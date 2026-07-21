@@ -113,6 +113,19 @@ async function getResponseError(
     if (typeof errorBody.detail === "string") {
       return errorBody.detail;
     }
+    if (Array.isArray(errorBody.detail)) {
+      const validationMessages = errorBody.detail.flatMap((item) => {
+        if (typeof item !== "object" || item === null) {
+          return [];
+        }
+
+        const message = (item as { msg?: unknown }).msg;
+        return typeof message === "string" ? [message] : [];
+      });
+      if (validationMessages.length > 0) {
+        return validationMessages.join(" ");
+      }
+    }
   } catch {
     // Keep the fallback when the backend does not return JSON.
   }

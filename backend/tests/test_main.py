@@ -884,6 +884,18 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("subtitle is a separate post-production caption", self.fake_responses.request["input"])
         self.assertIn("senior video scriptwriter and film director", self.fake_responses.request["instructions"])
 
+    async def test_generate_script_accepts_ten_second_duration(self) -> None:
+        self.fake_responses.result = make_script(duration=10)
+
+        response = await self.client.post(
+            "/api/generate-script",
+            json={"idea": "A valid short video idea", "duration": 10},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), make_script(duration=10).model_dump())
+        self.assertIn("exactly 10 seconds", self.fake_responses.request["input"])
+
     async def test_missing_api_key_returns_configuration_error(self) -> None:
         original_api_key = os.environ.pop("OPENAI_API_KEY", None)
         app.dependency_overrides.pop(get_openai_client)
