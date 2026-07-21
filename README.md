@@ -40,9 +40,11 @@
 
 **Live frontend:** https://creatorops-ai-one.vercel.app
 
-> The frontend is deployed on Vercel. Full script, voice, image and video generation
-> requires a reachable FastAPI backend. The backend can run locally or on a Vast.ai
-> GPU instance.
+> **Deployment limitation:** The frontend is deployed on Vercel. Full AI generation
+> and rendering require the FastAPI backend running locally or on a Vast.ai GPU
+> instance. If that backend is stopped or unreachable, the frontend remains available,
+> but backend-dependent features will not work. The project should not be described as
+> a permanently hosted full application while the temporary Vast.ai instance is stopped.
 
 ---
 
@@ -472,6 +474,16 @@ cd frontend
 npm run lint
 npm run build
 ```
+
+### Current CI coverage
+
+The current GitHub Actions workflow installs the frontend dependencies, runs the
+frontend linter, builds the Vercel artifacts, and deploys the frontend to Vercel.
+It does not run the backend `pytest` suite.
+
+Backend tests have been run separately and can be reproduced using the commands
+above. Adding backend tests to GitHub Actions is a planned improvement, but it is
+not required for the current submission.
 
 ### Manual end-to-end test
 
