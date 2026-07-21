@@ -29,6 +29,7 @@ outputs/
 *.wav
 *.mp3
 *.mp4
+!docs/media/creatorops-ai-demo.mp4
 
 # Editors
 .vscode/
