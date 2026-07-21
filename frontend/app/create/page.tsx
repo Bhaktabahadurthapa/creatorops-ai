@@ -653,7 +653,7 @@ export default function CreatePage() {
     );
     if (sceneMissingMedia) {
       setVideoError(
-        `Choose an image or video for scene ${sceneMissingMedia.scene_number}, or switch it to Generate from Text.`,
+        `Choose an image or video for scene ${sceneMissingMedia.scene_number}, or switch it to Generate AI Visual.`,
       );
       return;
     }
@@ -1209,11 +1209,11 @@ export default function CreatePage() {
                               }`}
                             >
                               <span className="block text-sm font-bold text-white">
-                                Generate from Text
+                                Generate AI Visual
                               </span>
                               <span className="mt-1 block text-xs leading-5 text-slate-400">
-                                Animated typography, depth, color, and scene
-                                progress created from your direction.
+                                Create a text-free AI scene image, then add
+                                camera motion without an upload.
                               </span>
                             </button>
                             <button
@@ -1251,7 +1251,7 @@ export default function CreatePage() {
                                 htmlFor={`scene-text-${scene.scene_number}`}
                                 className="font-mono text-[10px] uppercase tracking-[0.2em] text-violet-300"
                               >
-                                Text scene direction
+                                AI visual prompt
                               </label>
                               <textarea
                                 id={`scene-text-${scene.scene_number}`}
@@ -1271,9 +1271,9 @@ export default function CreatePage() {
                                 className="mt-3 w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm leading-6 text-slate-200 outline-none focus:border-violet-400"
                               />
                               <p className="mt-2 text-xs text-slate-500">
-                                No image is required. The subtitle becomes the
-                                headline and this direction becomes supporting
-                                copy in the animated scene.
+                                OpenAI creates a text-free scene image from this
+                                prompt. CreatorOps then adds motion and syncs it
+                                with the narration and subtitles.
                               </p>
                             </div>
                           ) : (
@@ -1305,7 +1305,7 @@ export default function CreatePage() {
                                   ? "Uploading and validating…"
                                   : selectedMedia
                                     ? `${selectedMedia.filename} is ready.`
-                                    : "Choose one image or video, or switch back to Generate from Text."}
+                                    : "Choose one image or video, or switch back to Generate AI Visual."}
                               </p>
                             </div>
                           )}
@@ -1427,7 +1427,7 @@ export default function CreatePage() {
                         Render the scene plan
                       </h4>
                       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                        Mix generated scenes with your uploaded images and video
+                        Mix AI-generated visuals with your uploaded images and video
                         clips in one narration-synced MP4.
                       </p>
                     </div>
@@ -1577,7 +1577,7 @@ export default function CreatePage() {
                     <p className="mt-3 text-sm text-cyan-200/80" role="status">
                       {videoJobStatus === "queued"
                         ? "Your render is queued. The page will begin tracking it automatically."
-                        : "HyperFrames and FFmpeg are rendering the final video. You can keep this page open."}
+                        : "OpenAI is creating scene visuals, then FFmpeg will animate and render the final video. You can keep this page open."}
                     </p>
                   )}
 
@@ -1589,7 +1589,7 @@ export default function CreatePage() {
                   {audioId && hasMissingSelectedMedia && (
                     <p className="mt-3 text-xs text-amber-300/80">
                       Upload media for each scene set to Image / Video, or
-                      switch that scene to Generate from Text.
+                      switch that scene to Generate AI Visual.
                     </p>
                   )}
 

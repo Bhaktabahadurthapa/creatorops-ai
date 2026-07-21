@@ -12,7 +12,7 @@ Next.js frontend on Vercel
   ↓ NEXT_PUBLIC_API_URL
 FastAPI backend on a Vast.ai GPU instance
   ↓
-OpenAI + Chatterbox Turbo + FFmpeg + local or persistent media storage
+OpenAI scripts and scene visuals + Chatterbox Turbo + FFmpeg + persistent storage
 ```
 
 The backend cannot run as part of this Vercel frontend deployment. It loads a
@@ -50,12 +50,20 @@ visitor's own computer when used by a deployed frontend.
 In the Vercel project, open **Settings → Environment Variables** and add:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-public-backend.example.com
+NEXT_PUBLIC_API_URL=https://your-fastapi-backend.example.com
 ```
 
 Add it to the Production environment. Add it to Preview as well if preview
 deployments will be enabled later. Redeploy after changing a Vercel environment
 variable because existing deployments do not receive updates automatically.
+Replace the example FastAPI hostname with the real stable HTTPS address of the
+Vast.ai backend.
+
+Configure the backend with the exact production frontend origin:
+
+```env
+CORS_ORIGINS=https://creatorops-ai-one.vercel.app
+```
 
 ## Configure GitHub Actions
 

@@ -3,8 +3,10 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import wave
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from threading import Lock
 from typing import Literal
@@ -69,6 +71,7 @@ from app.services.video import (
 from app.services.video.ffmpeg_utils import FFmpegExecutionError, probe_media
 from app.services.video.hyperframes import HYPERFRAMES_CLI
 from app.services.video.schemas import MediaRole, MediaType
+from app.services.video.visuals import generate_scene_image, get_image_model
 
 
 logger = logging.getLogger(__name__)
@@ -82,6 +85,7 @@ load_dotenv(BACKEND_DIR / ".env")
 VoiceGenerator = Callable[[str, Path, Path], Path]
 VoiceReferenceNormalizer = Callable[[Path, Path], None]
 VideoRenderer = Callable[..., VideoRenderResult]
+SceneVisualGenerator = Callable[[str, Path], Path]
 MediaProbe = Callable[[Path], tuple[set[str], float | None]]
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
@@ -336,6 +340,21 @@ def get_video_renderer() -> VideoRenderer:
     return render_video
 
 
+def get_scene_visual_generator(
+    client: OpenAI = Depends(get_openai_client),
+    model: str = Depends(get_image_model),
+) -> SceneVisualGenerator:
+    def generator(prompt: str, output_path: Path) -> Path:
+        return generate_scene_image(
+            prompt,
+            output_path,
+            client=client,
+            model=model,
+        )
+
+    return generator
+
+
 def safe_upload_filename(filename: str | None) -> str:
     name = Path((filename or "media").replace("\\", "/")).name
     name = re.sub(r"[^\w .()\-]", "_", name, flags=re.UNICODE).strip(". ")
@@ -486,19 +505,46 @@ def run_video_render_job(
     background_music_path: Path | None,
     resolution: Literal["720p", "1080p"],
     video_renderer: VideoRenderer,
+    scene_visual_generator: SceneVisualGenerator,
 ) -> None:
     with RENDER_JOB_LOCK:
         job_store.set_processing(job_id)
         try:
-            render_result = video_renderer(
-                audio_path=audio_path,
-                scenes=scenes,
-                output_path=output_path,
-                subtitle_path=subtitle_path,
-                logo_path=logo_path,
-                background_music_path=background_music_path,
-                resolution=resolution,
-            )
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(
+                dir=output_path.parent,
+                prefix=f"scene-visuals-{video_id}-",
+            ) as temporary_directory:
+                visual_dir = Path(temporary_directory)
+                prepared_scenes: list[RenderScene] = []
+                for scene in scenes:
+                    if scene.media_type != "generated":
+                        prepared_scenes.append(scene)
+                        continue
+
+                    visual_path = visual_dir / f"scene-{scene.scene_number:04d}.jpg"
+                    scene_visual_generator(scene.visual_description, visual_path)
+                    if not visual_path.is_file():
+                        raise VideoRenderError(
+                            f"Scene {scene.scene_number} visual generation produced no image."
+                        )
+                    prepared_scenes.append(
+                        replace(
+                            scene,
+                            media_path=visual_path,
+                            media_type="image",
+                        )
+                    )
+
+                render_result = video_renderer(
+                    audio_path=audio_path,
+                    scenes=prepared_scenes,
+                    output_path=output_path,
+                    subtitle_path=subtitle_path,
+                    logo_path=logo_path,
+                    background_music_path=background_music_path,
+                    resolution=resolution,
+                )
             if not output_path.is_file():
                 raise VideoRenderError("Video rendering produced no MP4 file.")
             result = VideoRenderResponse(
@@ -516,7 +562,7 @@ def run_video_render_job(
             subtitle_path.unlink(missing_ok=True)
             job_store.fail(
                 job_id,
-                "Video rendering could not process the supplied media.",
+                "AI scene generation or video rendering failed. Please try again.",
             )
 
 
@@ -866,6 +912,9 @@ def generate_video(
     uploads_dir: Path = Depends(get_media_uploads_dir),
     output_dir: Path = Depends(get_video_output_dir),
     video_renderer: VideoRenderer = Depends(get_video_renderer),
+    scene_visual_generator: SceneVisualGenerator = Depends(
+        get_scene_visual_generator
+    ),
     job_store: JobStore = Depends(get_job_store),
 ) -> JobSubmission:
     audio_path = audio_dir / f"{request.audio_id}.wav"
@@ -923,6 +972,7 @@ def generate_video(
         background_music_path=background_music_path,
         resolution=request.resolution,
         video_renderer=video_renderer,
+        scene_visual_generator=scene_visual_generator,
     )
     return JobSubmission(
         job_id=job.job_id,

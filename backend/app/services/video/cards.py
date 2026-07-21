@@ -40,7 +40,6 @@ def generate_text_card(
 
     label_font = _load_font(32, bold=True)
     title_font = _load_font(84, bold=True)
-    body_font = _load_font(38)
     number_font = _load_font(180, bold=True)
 
     draw.text((184, 166), f"SCENE {scene_number:02d}", font=label_font, fill=accent)
@@ -57,13 +56,6 @@ def generate_text_card(
     for line in headline_lines:
         draw.text((184, headline_y), line, font=title_font, fill=(245, 247, 255))
         headline_y += 104
-
-    direction = _clean_text(visual_description)
-    if direction and direction.casefold() != headline.casefold():
-        body_y = max(650, headline_y + 36)
-        for line in _wrap_text(draw, direction, body_font, 1160, max_lines=3):
-            draw.text((184, body_y), line, font=body_font, fill=(159, 173, 207))
-            body_y += 54
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(output_path, format="PNG", optimize=True)

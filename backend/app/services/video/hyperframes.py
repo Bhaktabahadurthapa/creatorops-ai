@@ -101,9 +101,6 @@ def build_hyperframes_composition(
     accent, secondary, background = PALETTES[(scene_number - 1) % len(PALETTES)]
     duration = f"{duration_seconds:.6f}"
     headline = html.escape(" ".join(subtitle.split()) or "CreatorOps AI")
-    direction = html.escape(
-        " ".join(visual_description.split()) or "A polished creator workflow in motion"
-    )
     words = "".join(
         f'<span class="word" style="--word-index:{index}">{word}</span>'
         for index, word in enumerate(headline.split())
@@ -145,7 +142,6 @@ def build_hyperframes_composition(
       .eyebrow {{ color: {accent}; font-size: 28px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; animation: rise .65s .08s cubic-bezier(.2,.8,.2,1) both; }}
       h1 {{ margin: 44px 0 0; max-width: 1320px; font-size: 94px; line-height: 1.02; letter-spacing: -.045em; }}
       .word {{ display: inline-block; margin-right: .24em; animation: word-in .72s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(.20s + var(--word-index) * .075s); }}
-      .direction {{ margin: 50px 0 0; max-width: 1100px; color: #b7c3de; font-size: 38px; line-height: 1.42; animation: rise .8s .72s cubic-bezier(.2,.8,.2,1) both; }}
       .meter {{ position: absolute; left: 184px; right: 184px; bottom: 112px; height: 3px; overflow: hidden; background: #ffffff1f; }}
       .meter::after {{ content: ""; display: block; width: 100%; height: 100%; background: linear-gradient(90deg, {accent}, {secondary}); transform-origin: left; animation: progress {duration}s linear both; }}
       .number {{ position: absolute; right: 130px; bottom: 92px; color: #62677a; font-size: 240px; line-height: 1; font-weight: 900; letter-spacing: -.08em; animation: number-in 1s .2s cubic-bezier(.2,.8,.2,1) both; }}
@@ -167,7 +163,7 @@ def build_hyperframes_composition(
           <div class="wash"></div><div class="grid"></div>
           <div class="orb orb-a" data-layout-allow-overflow></div><div class="orb orb-b" data-layout-allow-overflow></div>
           <div class="rail"></div>
-          <div class="content"><div class="eyebrow">CreatorOps AI · Scene {scene_number:02d}</div><h1>{words}</h1><p class="direction">{direction}</p></div>
+          <div class="content"><div class="eyebrow">CreatorOps AI · Scene {scene_number:02d}</div><h1>{words}</h1></div>
           <div class="number">{scene_number:02d}</div><div class="meter"></div>
         </div>
       </section>

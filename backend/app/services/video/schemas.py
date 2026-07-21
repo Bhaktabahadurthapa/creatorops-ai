@@ -40,7 +40,7 @@ class VideoSceneInput(BaseModel):
     media_path: str | None = Field(default=None, max_length=500)
     media_type: Literal["image", "video", "generated"] = "generated"
     subtitle: str = Field(min_length=1, max_length=500)
-    visual_description: str = Field(default="", max_length=1000)
+    visual_description: str = Field(default="", max_length=4000)
     fit_mode: FitMode = "cover"
     motion_type: MotionType = "automatic"
     motion_strength: MotionStrength = "subtle"

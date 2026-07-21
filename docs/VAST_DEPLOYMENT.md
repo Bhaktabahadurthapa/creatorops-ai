@@ -63,9 +63,10 @@ values in Vast.ai:
 ```env
 OPENAI_API_KEY=configure_as_a_vast_secret
 OPENAI_MODEL=gpt-5.6
+OPENAI_IMAGE_MODEL=gpt-image-2
 DATA_DIR=/workspace/data
 VOICE_REFERENCE_PATH=private/my_voice.wav
-CORS_ORIGINS=https://your-project.vercel.app
+CORS_ORIGINS=https://creatorops-ai-one.vercel.app
 CHATTERBOX_DEVICE=cuda
 PORT=8000
 HF_HOME=/workspace/data/models
@@ -109,10 +110,15 @@ Create a stable HTTPS address for the Vast.ai API, then set this Vercel
 Production environment variable and redeploy the frontend:
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.your-domain.example
+NEXT_PUBLIC_API_URL=https://your-fastapi-backend.example.com
 ```
 
-Set the exact Vercel production origin in the instance's `CORS_ORIGINS` value.
+Replace the example FastAPI hostname with the real stable HTTPS backend address.
+Set the instance's production origin to:
+
+```env
+CORS_ORIGINS=https://creatorops-ai-one.vercel.app
+```
 
 ## Current production limits
 

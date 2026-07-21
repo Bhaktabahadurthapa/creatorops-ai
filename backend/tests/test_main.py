@@ -1,3 +1,4 @@
+import base64
 import io
 import os
 import shutil
@@ -22,6 +23,7 @@ from app.main import (
     get_job_store,
     get_openai_client,
     get_openai_model,
+    get_scene_visual_generator,
     get_video_output_dir,
     get_video_renderer,
     get_voice_generator,
@@ -58,6 +60,7 @@ from app.services.video.hyperframes import (
 )
 from app.services.video.schemas import RenderScene, VideoRenderResult
 from app.services.video.subtitles import write_srt
+from app.services.video.visuals import generate_scene_image
 
 
 class FakeResponses:
@@ -158,6 +161,17 @@ class FakeVideoRenderer:
             subtitle_path=subtitle_path,
             subtitles_burned=False,
         )
+
+
+class FakeSceneVisualGenerator:
+    def __init__(self):
+        self.calls: list[tuple[str, Path]] = []
+
+    def __call__(self, prompt: str, output_path: Path) -> Path:
+        self.calls.append((prompt, output_path))
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"mock generated scene image")
+        return output_path
 
 
 def make_script(duration: int = 60) -> ScriptResponse:
@@ -328,9 +342,34 @@ class VideoServiceUnitTests(unittest.TestCase):
         self.assertIn("@keyframes word-in", composition)
         self.assertIn("Create", composition)
         self.assertIn("&amp;", composition)
-        self.assertIn("&lt;script&gt;", composition)
+        self.assertNotIn("&lt;script&gt;", composition)
         self.assertNotIn("<script>alert", composition)
         self.assertNotIn("https://", composition)
+
+    def test_openai_scene_image_is_saved_without_rendering_prompt_text(self) -> None:
+        class FakeImages:
+            def __init__(self) -> None:
+                self.request: dict[str, object] | None = None
+
+            def generate(self, **kwargs: object) -> SimpleNamespace:
+                self.request = kwargs
+                encoded = base64.b64encode(b"mock jpeg image").decode("ascii")
+                return SimpleNamespace(data=[SimpleNamespace(b64_json=encoded)])
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            images = FakeImages()
+            output_path = Path(temp_dir) / "scene.jpg"
+            result = generate_scene_image(
+                "A creator works in a bright studio",
+                output_path,
+                client=SimpleNamespace(images=images),
+                model="gpt-image-2",
+            )
+
+            self.assertEqual(result.read_bytes(), b"mock jpeg image")
+            self.assertEqual(images.request["model"], "gpt-image-2")
+            self.assertEqual(images.request["size"], "1536x1024")
+            self.assertIn("Do not include captions", images.request["prompt"])
 
     def test_hyperframes_renderer_mocks_the_cli(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -740,6 +779,7 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
         self.fake_voice_normalizer = FakeVoiceReferenceNormalizer()
         self.fake_media_probe = FakeMediaProbe()
         self.fake_video_renderer = FakeVideoRenderer()
+        self.fake_scene_visual_generator = FakeSceneVisualGenerator()
         self.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
             base_url="http://testserver",
@@ -759,6 +799,9 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
         app.dependency_overrides[get_media_probe] = lambda: self.fake_media_probe
         app.dependency_overrides[get_video_output_dir] = lambda: self.video_output_dir
         app.dependency_overrides[get_video_renderer] = lambda: self.fake_video_renderer
+        app.dependency_overrides[get_scene_visual_generator] = (
+            lambda: self.fake_scene_visual_generator
+        )
         app.dependency_overrides[get_job_store] = lambda: JobStore(self.jobs_dir)
 
     async def asyncTearDown(self) -> None:
@@ -1190,9 +1233,47 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(job["status"], "completed")
         self.assertEqual(len(self.fake_video_renderer.calls), 1)
         scene = self.fake_video_renderer.calls[0]["scenes"][0]
-        self.assertIsNone(scene.media_path)
-        self.assertEqual(scene.media_type, "generated")
+        self.assertIsNotNone(scene.media_path)
+        self.assertEqual(scene.media_type, "image")
         self.assertEqual(scene.visual_description, "A modern creator workflow")
+        self.assertEqual(
+            self.fake_scene_visual_generator.calls[0][0],
+            "A modern creator workflow",
+        )
+
+    async def test_video_render_accepts_detailed_generated_prompt(self) -> None:
+        audio_id = uuid4()
+        narration_path = self.audio_output_dir / f"{audio_id}.wav"
+        narration_path.parent.mkdir(parents=True, exist_ok=True)
+        narration_path.write_bytes(make_wav_bytes())
+        visual_description = ("Detailed presenter direction. " * 40).strip()
+        self.assertGreater(len(visual_description), 1000)
+
+        response = await self.client.post(
+            "/api/video/render",
+            json={
+                "audio_id": str(audio_id),
+                "scenes": [
+                    {
+                        "scene_number": 1,
+                        "duration_seconds": 8,
+                        "media_type": "generated",
+                        "subtitle": "Create faster with CreatorOps AI",
+                        "visual_description": visual_description,
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 202)
+        job = await self.get_job(response.json())
+        self.assertEqual(job["status"], "completed")
+        scene = self.fake_video_renderer.calls[0]["scenes"][0]
+        self.assertEqual(scene.visual_description, visual_description)
+        self.assertEqual(
+            self.fake_scene_visual_generator.calls[0][0],
+            visual_description,
+        )
 
     async def test_video_render_accepts_mixed_text_and_uploaded_scenes(self) -> None:
         project_id = uuid4()
@@ -1236,9 +1317,10 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
         job = await self.get_job(response.json())
         self.assertEqual(job["status"], "completed")
         scenes = self.fake_video_renderer.calls[0]["scenes"]
-        self.assertEqual([scene.media_type for scene in scenes], ["generated", "image"])
-        self.assertIsNone(scenes[0].media_path)
+        self.assertEqual([scene.media_type for scene in scenes], ["image", "image"])
+        self.assertIsNotNone(scenes[0].media_path)
         self.assertTrue(scenes[1].media_path.is_file())
+        self.assertEqual(len(self.fake_scene_visual_generator.calls), 1)
 
     async def test_video_render_rejects_unknown_resolution(self) -> None:
         response = await self.client.post(
