@@ -26,158 +26,126 @@
   <img src="https://img.shields.io/badge/video-FFmpeg-007808" alt="FFmpeg video rendering">
 </p>
 
-<p align="center">
-  <a href="#demo">Demo</a> ·
-  <a href="#system-flow">System flow</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#deployment-modes">Deployment</a> ·
-  <a href="#how-to-run-locally">Local setup</a> ·
-  <a href="#testing">Testing</a>
-</p>
-
 ---
 
 ## Demo
-
-### Video walkthrough
 
 [![Watch the CreatorOps AI demo](https://img.youtube.com/vi/cPOUEL0nrMI/maxresdefault.jpg)](https://youtu.be/cPOUEL0nrMI)
 
 **YouTube:** https://youtu.be/cPOUEL0nrMI
 
-The demo shows the complete workflow:
-
-```text
-Idea
-→ GPT-5.6 structured script
-→ Authorized Chatterbox Turbo narration
-→ Uploaded media or AI-generated visuals
-→ Motion, transitions and subtitles
-→ GPU-backed FFmpeg rendering
-→ Final MP4 and SRT
-→ Projects and Dashboard
-```
-
-### Live frontend
-
-**Vercel:** https://creatorops-ai-one.vercel.app
+**Live frontend:** https://creatorops-ai-one.vercel.app
 
 > The frontend is deployed on Vercel. Full script, voice, image and video generation
-> requires a reachable FastAPI backend. The backend can run locally or on a temporary
-> Vast.ai GPU instance. GPU instances may be stopped outside demonstrations to control cost.
+> requires a reachable FastAPI backend. The backend can run locally or on a Vast.ai
+> GPU instance.
 
 ---
 
-## System flow
+## System Flow
 
 <p align="center">
-  <a href="docs/images/creatorops-ai-system-flow.png">
-    <img src="docs/images/creatorops-ai-system-flow.png" width="100%" alt="CreatorOps AI end-to-end system flow">
+  <a href="docs/images/creatorops-ai-system-flow.svg">
+    <img src="docs/images/creatorops-ai-system-flow.svg" width="100%" alt="CreatorOps AI end-to-end system flow">
   </a>
 </p>
 
-<p align="center"><sub>Idea → Script → Voice → Visuals → Video → Project</sub></p>
+<p align="center"><sub>Idea → Script → Voice → Media → Video → Project</sub></p>
 
-CreatorOps AI is a full-stack AI video-production platform built with Next.js,
-FastAPI, OpenAI, Chatterbox Turbo and FFmpeg. It supports both local development
-and a cloud demo architecture with a Vercel frontend and a GPU-backed FastAPI service.
+The updated system flow covers:
 
-| Start with | CreatorOps AI handles | Export |
-| --- | --- | --- |
-| Idea, platform, tone and duration | Script, scene timing, authorized narration, visuals, motion, subtitles, logo and music | 720p or 1080p MP4 plus SRT |
+1. User input: idea, platform, tone, duration, voice reference and media uploads.
+2. Next.js frontend: create workflow, projects, dashboard and media preview.
+3. FastAPI orchestration: validation, routing, async jobs, render polling and storage.
+4. OpenAI script generation with structured production output.
+5. Authorized Chatterbox Turbo voice generation.
+6. Uploaded and generated media storage.
+7. FFmpeg rendering with motion, subtitles, music, logo and audio sync.
+8. Final MP4, SRT, project history and dashboard metrics.
 
-> [!IMPORTANT]
-> API keys, private voice references, uploaded media and generated files are excluded
-> from Git. In local mode they remain on the developer machine. In cloud mode they remain
-> inside the configured backend data directory or attached persistent volume.
+The diagram also documents deployment and security controls, including Vercel,
+Vast.ai GPU workers, Docker, persistent storage, backend-only API keys, private
+voice references and upload validation.
 
 ---
 
-## The problem
+## Problem
 
-Creating a professional short video normally requires several disconnected tools:
+Creating a professional short video usually requires several disconnected tools:
 
-1. Write and organize a script.
-2. Record or generate narration.
-3. Collect images and clips.
-4. Create or source missing scene visuals.
-5. Animate static assets.
-6. Generate and synchronize subtitles.
-7. Add branding and music.
-8. Render, export and organize the final files.
+- Script writing
+- Voice recording or generation
+- Media collection
+- Image creation
+- Motion and transitions
+- Subtitle generation
+- Audio synchronization
+- Branding and music
+- Video rendering and export
 
 This workflow is slow and repetitive for solo creators, small businesses, agencies,
 educators and internal marketing teams.
 
-## The solution
+---
+
+## Solution
 
 CreatorOps AI combines the complete workflow in one application:
 
 - Generates a validated script and timed scene plan with the OpenAI Responses API.
 - Generates authorized narration with Chatterbox Turbo.
-- Accepts uploaded images, videos, logos and background music.
+- Accepts uploaded images, videos, voice references, logos and background music.
 - Generates text-free scene visuals with the OpenAI Image API.
 - Animates still images with zoom, pan, fades and crossfades.
-- Synchronizes scenes with narration and subtitles.
+- Synchronizes narration, visuals and subtitles.
 - Exports 720p or 1080p MP4 plus SRT subtitles.
-- Tracks draft, voice, render and completion states in Projects and Dashboard.
+- Tracks draft, voice, rendering and completion states.
 
 ---
 
 ## Features
 
-### 1. Structured AI script generation
+### Structured AI script generation
 
-FastAPI sends the content request to the OpenAI Responses API and validates the
-structured result with Pydantic.
-
-The production blueprint includes:
+GPT-5.6 creates a validated production blueprint containing:
 
 - Title
 - Hook
-- Full narration
+- Narration
 - Call to action
 - Sequential scenes
 - Visual direction
 - Subtitle text
-- Duration for every scene
+- Duration per scene
 
-The validated output becomes the source of truth for voice generation, scene
-composition, subtitles and final rendering.
+The structured result becomes the source of truth for narration, scene timing,
+subtitles and video rendering.
 
-### 2. Authorized voice generation
+### Authorized voice generation
 
-Chatterbox Turbo performs zero-shot voice cloning from a private reference recording,
-watermarks generated audio and exports normalized WAV narration.
+Chatterbox Turbo performs zero-shot voice cloning from a private authorized
+reference recording, watermarks generated audio and exports normalized WAV narration.
 
-Security expectations:
+Use only voices you own or have permission to use.
 
-- Use only a voice you own or have permission to use.
-- Private voice files are excluded from Git.
-- Generated voice files are stored under the configured backend data directory.
-- GPU deployments use `CHATTERBOX_DEVICE=cuda`.
+### AI-generated visual scenes
 
-### 3. AI-generated visual scenes
+When no media is uploaded, the OpenAI Image API creates a text-free visual for each
+scene. FFmpeg then converts the image into a moving video segment.
 
-When no media is uploaded, the OpenAI Image API creates a text-free landscape image
-for each scene. FFmpeg then turns that image into a moving video segment.
+### Media upload and validation
 
-This prevents internal production prompts from appearing as text inside the final video.
+The FastAPI backend validates:
 
-### 4. Media upload and validation
+- File extension
+- File size
+- Media streams
+- Project-scoped paths
+- Safe output locations
 
-The backend validates file size, extension, media streams and project-scoped paths for:
+### Animated scene motion
 
-- Images
-- Video clips
-- Voice references
-- Logos
-- Background music
-
-### 5. Animated image scenes
-
-FFmpeg applies:
+FFmpeg supports:
 
 - Automatic motion
 - Zoom in and zoom out
@@ -186,28 +154,28 @@ FFmpeg applies:
 - Crossfade transitions
 - Scale and crop normalization
 
-### 6. Asynchronous voice and video jobs
+### Asynchronous jobs
 
-Long-running voice and render requests return HTTP `202` with a job ID. The frontend
-polls job status and displays:
+Long-running voice and render requests return HTTP `202` with a job ID.
+The frontend polls status:
 
 ```text
 queued → processing → completed | failed
 ```
 
-Job metadata is stored under `DATA_DIR`, so project status survives normal page refreshes.
-Active in-process work does not resume automatically after a backend restart.
+Job metadata is stored under `DATA_DIR`.
 
-### 7. Video rendering pipeline
+### Video rendering
 
-FFmpeg combines:
+The rendering pipeline combines:
 
 - Narration WAV
-- Uploaded or generated scene media
+- Uploaded or generated visuals
 - Motion and transitions
 - SRT subtitles and optional burn-in
 - Optional logo
 - Optional background music
+- Audio synchronization
 
 Outputs:
 
@@ -215,7 +183,7 @@ Outputs:
 - 1080p Full HD MP4
 - SRT subtitle file
 
-### 8. Projects and Dashboard
+### Projects and Dashboard
 
 Browser localStorage tracks safe project metadata and statuses:
 
@@ -230,14 +198,12 @@ Browser localStorage tracks safe project metadata and statuses:
 
 ## Architecture
 
-![CreatorOps AI end-to-end architecture](docs/images/creatorops-ai-architecture.png)
-
-### Application flow
+![CreatorOps AI architecture](docs/images/creatorops-ai-architecture.png)
 
 ```text
 User idea
    ↓
-Next.js Create workflow
+Next.js create workflow
    ↓
 FastAPI API and job orchestration
    ↓
@@ -264,7 +230,7 @@ Projects page and Dashboard
 Browser
    ↓
 Vercel-hosted Next.js frontend
-   ↓ HTTPS API URL
+   ↓
 FastAPI backend
    ├── OpenAI Responses API
    ├── OpenAI Image API
@@ -272,7 +238,7 @@ FastAPI backend
    ├── FFmpeg / FFprobe
    └── asynchronous job polling
    ↓
-Configured DATA_DIR / persistent volume
+DATA_DIR / persistent volume
    ├── voice references
    ├── uploads
    ├── model cache
@@ -282,7 +248,7 @@ Configured DATA_DIR / persistent volume
 
 ---
 
-## Tech stack
+## Tech Stack
 
 ### Frontend
 
@@ -307,10 +273,10 @@ Configured DATA_DIR / persistent volume
 
 - OpenAI Responses API
 - OpenAI Structured Outputs
+- GPT-5.6
 - OpenAI Image API
-- GPT-5.6 for production planning
-- `gpt-image-2` for scene visuals
-- [Chatterbox Turbo](https://github.com/resemble-ai/chatterbox) 0.1.7
+- `gpt-image-2`
+- Chatterbox Turbo 0.1.7
 - Transformers
 
 ### Video and audio
@@ -324,7 +290,7 @@ Configured DATA_DIR / persistent volume
 ### Infrastructure
 
 - Docker / Docker Buildx
-- Docker Hub image
+- Docker Hub
 - Vast.ai NVIDIA GPU backend
 - Vercel frontend
 - GitHub Actions
@@ -342,9 +308,9 @@ Configured DATA_DIR / persistent volume
 
 ---
 
-## Deployment modes
+## Deployment Modes
 
-### Mode A: Fully local
+### Fully local
 
 ```text
 Local Next.js frontend
@@ -354,9 +320,7 @@ Local Next.js frontend
 → Local FFmpeg rendering
 ```
 
-This is the safest development and backup environment.
-
-### Mode B: Local frontend with cloud GPU backend
+### Local frontend with Vast.ai GPU backend
 
 ```text
 localhost:3000
@@ -365,35 +329,33 @@ localhost:3000
 → Cloud FFmpeg rendering
 ```
 
-Set:
+Frontend environment:
 
 ```env
 NEXT_PUBLIC_API_URL=http://PUBLIC_IP:EXTERNAL_PORT
 ```
 
-This mode is useful for fast testing and demo recording.
-
-### Mode C: Vercel frontend with HTTPS backend
+### Vercel frontend with HTTPS backend
 
 ```text
 Vercel frontend
 → Stable HTTPS FastAPI backend
 ```
 
-Set in Vercel:
+Vercel environment:
 
 ```env
 NEXT_PUBLIC_API_URL=https://your-fastapi-backend.example.com
 ```
 
-Set in the backend:
+Backend CORS:
 
 ```env
 CORS_ORIGINS=https://creatorops-ai-one.vercel.app
 ```
 
 A Vercel HTTPS page should not call a plain HTTP backend because browsers may block
-mixed content. Use a stable HTTPS backend URL for a fully public deployment.
+mixed content.
 
 Deployment guides:
 
@@ -402,7 +364,7 @@ Deployment guides:
 
 ---
 
-## How to run locally
+## Run Locally
 
 ### 1. Clone
 
@@ -431,7 +393,7 @@ uvicorn app.main:app --reload --port 8000
 
 ### 4. Configure and start the frontend
 
-Open another terminal:
+Open a second terminal:
 
 ```bash
 cd creatorops-ai/frontend
@@ -448,25 +410,22 @@ http://localhost:3000
 
 ---
 
-## Environment variables
+## Environment Variables
 
-### Backend: `backend/.env`
+### Backend
 
 ```env
 OPENAI_API_KEY=your_real_openai_api_key
 OPENAI_MODEL=gpt-5.6
 OPENAI_IMAGE_MODEL=gpt-image-2
-
 DATA_DIR=
 VOICE_REFERENCE_PATH=private/my_voice.wav
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 CHATTERBOX_DEVICE=auto
 PORT=8000
-HF_HOME=
-XDG_CACHE_HOME=
 ```
 
-For a Vast.ai GPU backend:
+### Vast.ai GPU backend
 
 ```env
 OPENAI_API_KEY=configure_in_vast
@@ -474,75 +433,21 @@ OPENAI_MODEL=gpt-5.6
 OPENAI_IMAGE_MODEL=gpt-image-2
 DATA_DIR=/workspace/data
 VOICE_REFERENCE_PATH=private/my_voice.wav
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ORIGINS=https://creatorops-ai-one.vercel.app
 CHATTERBOX_DEVICE=cuda
 PORT=8000
 HF_HOME=/workspace/data/models
 XDG_CACHE_HOME=/workspace/data/cache
 ```
 
-### Frontend: `frontend/.env.local`
-
-Local backend:
+### Frontend
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
-Cloud GPU backend:
-
-```env
-NEXT_PUBLIC_API_URL=http://PUBLIC_IP:EXTERNAL_PORT
-```
-
-Production frontend:
-
-```env
-NEXT_PUBLIC_API_URL=https://your-fastapi-backend.example.com
-```
-
-### Security rules
-
-- Never commit `.env` or `.env.local`.
-- Never place `OPENAI_API_KEY` in frontend code.
-- Never commit private voice recordings.
-- Never commit uploaded media or generated WAV/MP4 files.
-- Keep cloud templates private when they contain secrets.
-
----
-
-## Voice-reference setup
-
-### Upload through the application
-
-1. Open `/create`.
-2. Upload a 6–20 second reference recording.
-3. Use one speaker in a quiet room.
-4. Upload only a voice you own or are authorized to use.
-5. Wait for the status to show ready.
-6. Generate narration.
-
-### Add a local WAV manually
-
-```bash
-mkdir -p backend/private
-```
-
-Place the file at:
-
-```text
-backend/private/my_voice.wav
-```
-
-Configure:
-
-```env
-VOICE_REFERENCE_PATH=private/my_voice.wav
-```
-
-`CHATTERBOX_DEVICE=auto` selects NVIDIA CUDA first, Apple MPS on compatible Macs,
-and CPU as a fallback. Vast.ai deployments should use `CHATTERBOX_DEVICE=cuda`.
-The first generation downloads and loads model assets; later requests reuse the cache.
+Never commit `.env`, `.env.local`, API keys, private voice recordings, uploaded media
+or generated WAV/MP4 files.
 
 ---
 
@@ -564,38 +469,18 @@ npm run lint
 npm run build
 ```
 
-### Manual end-to-end validation
+### Manual end-to-end test
 
 1. Enter a short content idea.
-2. Generate the structured script.
+2. Generate a script.
 3. Upload an authorized voice reference.
-4. Generate narration and observe job polling.
-5. Upload media or generate AI visual scenes.
+4. Generate narration.
+5. Upload media or generate AI scene images.
 6. Assign a source to every scene.
 7. Enable subtitles.
-8. Render a 720p preview.
+8. Render the final video.
 9. Play and download the MP4.
 10. Download the SRT file.
-
----
-
-## Screenshots and build proof
-
-Selected proof from the OpenAI, voice and rendering implementation workflow:
-
-| OpenAI script integration | API contract and security validation |
-| --- | --- |
-| [![OpenAI Responses API implementation](docs/images/screenshots/openai-script-integration.png)](docs/images/screenshots/openai-script-integration.png) | [![API validation](docs/images/screenshots/api-security-validation.png)](docs/images/screenshots/api-security-validation.png) |
-
-| Authorized voice integration | Video renderer implementation |
-| --- | --- |
-| [![Authorized voice integration](docs/images/screenshots/authorized-voice-integration.png)](docs/images/screenshots/authorized-voice-integration.png) | [![FFmpeg renderer](docs/images/screenshots/video-renderer-implementation.png)](docs/images/screenshots/video-renderer-implementation.png) |
-
-| Video rendering validation | Final project audit |
-| --- | --- |
-| [![Rendering validation](docs/images/screenshots/video-renderer-validation.png)](docs/images/screenshots/video-renderer-validation.png) | [![Final audit](docs/images/screenshots/final-project-audit.png)](docs/images/screenshots/final-project-audit.png) |
-
-The complete user-facing workflow is shown in the [demo video](https://youtu.be/cPOUEL0nrMI).
 
 ---
 
@@ -605,109 +490,70 @@ CreatorOps AI was substantially developed during OpenAI Build Week.
 
 ### How GPT-5.6 is used
 
-GPT-5.6 generates the validated production blueprint that drives narration, scene
-composition, subtitle timing and rendering.
+GPT-5.6 generates the structured production blueprint that controls script content,
+scene timing, subtitles, narration and rendering.
 
 ### How Codex was used
 
-Codex helped to:
+Codex helped:
 
-- Build and connect Next.js and FastAPI.
-- Integrate structured OpenAI responses.
-- Integrate AI-generated scene visuals.
-- Adapt the authorized Chatterbox Turbo voice service.
-- Improve the FFmpeg rendering pipeline.
-- Add secure uploads and path validation.
-- Add asynchronous jobs and frontend polling.
-- Package the backend for NVIDIA GPU deployment.
-- Add tests, deployment guides and repository documentation.
-- Diagnose local and cloud deployment issues.
+- Build and connect the Next.js and FastAPI applications
+- Integrate structured OpenAI responses
+- Adapt Chatterbox Turbo voice generation
+- Improve the FFmpeg rendering pipeline
+- Add image motion, transitions and generated scenes
+- Implement upload validation and path security
+- Add backend tests and frontend validation
+- Diagnose deployment and rendering issues
+- Improve documentation and repository presentation
 
-### Build evidence
+Build evidence:
 
 - Dated Git commits
-- Pull requests for voice, video and deployment integrations
+- Pull requests
 - [`docs/BUILD_WEEK_CHANGELOG.md`](docs/BUILD_WEEK_CHANGELOG.md)
-- Automated tests and real rendering validation
-- Public [demo video](https://youtu.be/cPOUEL0nrMI)
+- Automated tests
+- Real rendering validation
 
 ---
 
-## Known limitations
+## Known Limitations
 
-- Chatterbox Turbo and video rendering are compute- and memory-intensive.
-- The first voice generation has model download and loading latency.
-- Voice and video jobs run in-process; a backend restart interrupts active work.
-- Job metadata persists, but interrupted jobs do not automatically resume.
-- Project metadata is stored in browser localStorage rather than a database.
-- Generated files do not yet have automatic expiration or cleanup.
-- AI visual generation uses paid OpenAI API credits and adds scene-generation time.
-- Subtitle burn-in depends on the installed FFmpeg build.
-- The current public frontend requires a reachable backend to generate content.
-- Temporary Vast.ai instances use temporary storage unless persistent storage is attached.
-- Authentication, rate limiting and multi-user isolation are not yet implemented.
+- Chatterbox Turbo and video rendering are compute-intensive.
+- Voice and video jobs currently run in-process.
+- Active jobs do not resume automatically after a backend restart.
+- Project metadata is stored in browser localStorage, not a database.
+- Generated backend files do not yet have automatic cleanup.
+- AI visual generation requires paid OpenAI API usage.
+- Subtitle burn-in depends on the FFmpeg build.
+- Authentication and multi-user isolation are not yet implemented.
+- A fully public Vercel deployment requires a stable HTTPS backend.
 
 ---
 
 ## Roadmap
 
-### Completed MVP and submission work
-
-- [x] Next.js frontend
-- [x] FastAPI backend
-- [x] GPT-5.6 structured script generation
-- [x] Timed scene planning
-- [x] Authorized Chatterbox Turbo narration
-- [x] Media upload and validation
-- [x] AI-generated visual scenes
-- [x] Animated image motion
-- [x] Subtitles and SRT generation
-- [x] Logo and background music
-- [x] 720p and 1080p MP4 export
-- [x] Projects page and Dashboard
-- [x] Asynchronous job polling
-- [x] Docker GPU packaging
-- [x] Vast.ai deployment guide
-- [x] Vercel deployment and GitHub Action
-- [x] Architecture and build-proof images
-- [x] Demo video
-- [x] Automated tests
-
-### Next production milestones
-
-- [ ] Stable HTTPS GPU backend
-- [ ] Redis-backed distributed job queue
-- [ ] Automatic file cleanup
-- [ ] Structured logging and monitoring
-- [ ] Rate limiting and API authentication
-- [ ] Object storage for media and outputs
-- [ ] PostgreSQL or Supabase project persistence
-- [ ] User authentication and isolation
-- [ ] Reusable brand kits and multiple authorized voices
-- [ ] Platform-specific export and publishing presets
+- Add Redis and a background worker queue
+- Add automatic file cleanup
+- Add structured logging and monitoring
+- Add rate limiting
+- Add object storage
+- Add PostgreSQL or Supabase
+- Add authentication and user isolation
+- Add reusable brand kits
+- Add multiple authorized voices
+- Add stock-media search
+- Add team collaboration
+- Add scheduled publishing
 
 ---
 
-## Previous work reused
+## Responsible Use
 
-CreatorOps AI integrates and extends reusable service logic from two earlier prototypes:
-
-- **Text-to-Own_Voice-Apps:** authorized custom-voice generation
-- **my_project:** local audio, image, video and FFmpeg production workflow
-
-The original projects remain separate. CreatorOps AI adds the integrated Next.js/FastAPI
-workflow, structured OpenAI planning, AI scene generation, async jobs, cloud packaging,
-testing and complete production orchestration.
-
----
-
-## Responsible use
-
-- Use only voices you own or have explicit permission to use.
+- Use only voices you own or have permission to use.
 - Do not use generated audio to impersonate or deceive others.
-- Review generated scripts, visuals, narration and subtitles before publishing.
-- Protect API keys, voice references, uploads and generated outputs.
-- Retain required third-party notices when redistributing dependencies.
+- Protect API keys, private voice references, uploaded media and generated outputs.
+- Retain applicable third-party license notices.
 
 ---
 
@@ -715,5 +561,4 @@ testing and complete production orchestration.
 
 **Bhakta Bahadur Thapa**
 
-CreatorOps AI was designed and built as an end-to-end applied AI video-production system
-for OpenAI Build Week 2026.
+CreatorOps AI was designed and built as an end-to-end applied AI video-production system.
