@@ -13,6 +13,7 @@ import httpx
 from openai import APITimeoutError
 
 from app.main import (
+    Scene,
     ScriptResponse,
     app,
     get_audio_output_dir,
@@ -41,6 +42,7 @@ from app.config import (
 )
 from app.services.jobs import JobStore
 from app.services.voice import VoiceGenerationError, generate_audio
+from app.services.voice.generator import clean_script, split_for_speech
 from app.services.video.renderer import (
     AUTOMATIC_MOTIONS,
     allocate_scene_frames,
@@ -159,26 +161,30 @@ class FakeVideoRenderer:
 
 
 def make_script(duration: int = 60) -> ScriptResponse:
+    scene_count = duration // 5
+    scene_narrations = [
+        "CreatorOps AI turns one idea into a production-ready video."
+        for _ in range(scene_count)
+    ]
     return ScriptResponse(
         title="CreatorOps AI in One Minute",
         hook="What if one idea could become a complete video plan?",
-        narration="CreatorOps AI turns a raw idea into a structured production plan.",
+        narration=" ".join(scene_narrations),
         call_to_action="Turn your next idea into a CreatorOps AI project.",
         scenes=[
             {
-                "scene_number": 1,
-                "visual_description": "A creator faces a blank planning board.",
-                "narration": "Every video starts as a rough idea.",
-                "subtitle": "Start with one idea",
-                "duration_seconds": duration // 2,
-            },
-            {
-                "scene_number": 2,
-                "visual_description": "The idea expands into an organized storyboard.",
-                "narration": "CreatorOps AI shapes it into a production-ready plan.",
-                "subtitle": "Build the plan",
-                "duration_seconds": duration - (duration // 2),
-            },
+                "scene_number": scene_number,
+                "visual_description": (
+                    "A professional presenter in their early 30s wearing a charcoal "
+                    "blazer stands in a softly lit modern studio, speaking directly "
+                    "to camera, natural lip movement matching speech, while opening "
+                    "both palms with a warm smile. Medium shot with a slow push-in."
+                ),
+                "narration": scene_narrations[scene_number - 1],
+                "subtitle": "Build a production-ready video",
+                "duration_seconds": 5,
+            }
+            for scene_number in range(1, scene_count + 1)
         ],
     )
 
@@ -195,6 +201,45 @@ def make_wav_bytes(duration_seconds: int = 6) -> bytes:
 
 
 class VoiceGeneratorUnitTests(unittest.TestCase):
+    def test_script_pause_marker_becomes_silence_not_spoken_text(self) -> None:
+        cleaned = clean_script(
+            "Imagine a faster workflow. [pause 0.5s] Now build it."
+        )
+
+        chunks = split_for_speech(cleaned)
+
+        self.assertEqual(
+            chunks,
+            [
+                ("Imagine a faster workflow.", 500),
+                ("Now build it.", 0),
+            ],
+        )
+        self.assertNotIn("pause", " ".join(chunk for chunk, _ in chunks).lower())
+
+    def test_scene_rejects_generated_text_instructions(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must not instruct"):
+            Scene(
+                scene_number=1,
+                visual_description=(
+                    "A presenter points upward while text appears above them, "
+                    "speaking directly to camera, natural lip movement matching speech."
+                ),
+                narration="Build the idea.",
+                subtitle="Build the idea",
+                duration_seconds=5,
+            )
+
+    def test_scene_requires_avatar_lip_sync_direction(self) -> None:
+        with self.assertRaisesRegex(ValueError, "lip-sync"):
+            Scene(
+                scene_number=1,
+                visual_description="A presenter opens both palms in a modern studio.",
+                narration="Build the idea.",
+                subtitle="Build the idea",
+                duration_seconds=5,
+            )
+
     def test_voice_reference_normalization_uses_ffmpeg(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -767,7 +812,9 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
             {"idea": "  ", "platform": "YouTube", "tone": "Friendly", "duration": 60},
             {"idea": "A valid idea", "platform": "Podcast", "tone": "Friendly", "duration": 60},
             {"idea": "A valid idea", "platform": "TikTok", "tone": "Sarcastic", "duration": 60},
-            {"idea": "A valid idea", "platform": "TikTok", "tone": "Energetic", "duration": 45},
+            {"idea": "A valid idea", "platform": "TikTok", "tone": "Energetic", "duration": 4},
+            {"idea": "A valid idea", "platform": "TikTok", "tone": "Energetic", "duration": 47},
+            {"idea": "A valid idea", "platform": "TikTok", "tone": "Energetic", "duration": 121},
         ]
 
         for payload in invalid_payloads:
@@ -777,6 +824,22 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
                     json=payload,
                 )
                 self.assertEqual(response.status_code, 422)
+
+    async def test_generate_script_accepts_custom_duration(self) -> None:
+        self.fake_responses.result = make_script(duration=45)
+
+        response = await self.client.post(
+            "/api/generate-script",
+            json={"idea": "A valid idea", "duration": 45},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("exactly 45 seconds", self.fake_responses.request["input"])
+        self.assertIn("Every scene must last 5–8 seconds", self.fake_responses.request["input"])
+        self.assertIn("about 2.3 spoken words per second", self.fake_responses.request["input"])
+        self.assertIn("speaking directly to camera", self.fake_responses.request["input"])
+        self.assertIn("subtitle is a separate post-production caption", self.fake_responses.request["input"])
+        self.assertIn("senior video scriptwriter and film director", self.fake_responses.request["instructions"])
 
     async def test_missing_api_key_returns_configuration_error(self) -> None:
         original_api_key = os.environ.pop("OPENAI_API_KEY", None)
