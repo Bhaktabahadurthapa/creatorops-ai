@@ -120,7 +120,7 @@
   HyperFrames scenes and uploaded media in the same narration-synchronized MP4.
 - Added an automatic fallback to the existing animated FFmpeg text-card
   renderer when the HyperFrames CLI, Chrome, or a browser render is unavailable.
-- Added an explicit per-scene choice between `Generate from Text` and
+- Added an explicit per-scene choice between `Generate AI Visual` and
   `Upload Image / Video`, including editable text-scene directions and
   validation for media selections that have no uploaded file.
 - Added mocked HyperFrames CLI tests so the unit suite never launches Chrome,
@@ -159,3 +159,13 @@
 - Replaced the placeholder `/dashboard` route with a responsive local production
   overview showing project totals, pipeline stages, recent activity, the latest
   completed-video preview, and direct Create/Projects navigation.
+
+## July 21, 2026
+
+- Fixed generated scenes that exposed internal visual-direction prompts inside
+  exported videos.
+- Added OpenAI Image API scene generation so **Generate AI Visual** converts
+  each prompt into a text-free landscape image before rendering.
+- Reused the existing FFmpeg pan, zoom, fade, transition, narration, subtitle,
+  logo, music, and HD export pipeline for the generated scene images.
+- Added mocked image-generation tests; no unit test calls the real OpenAI API.

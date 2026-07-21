@@ -13,17 +13,25 @@ From the repository root, build an AMD64 image for Vast.ai:
 docker buildx build \
   --platform linux/amd64 \
   --file Dockerfile.backend \
-  --tag ghcr.io/bhaktabahadurthapa/creatorops-ai-backend:deploy-production \
+  --tag lishan2023/creatorops-ai-backend:deploy-production \
   --push \
   .
 ```
 
-Authenticate to GHCR or another Docker registry before pushing. Do not place a
-registry token, OpenAI key, or private voice recording in the image.
+Authenticate to Docker Hub before pushing. Do not place a registry token,
+OpenAI key, or private voice recording in the image.
+
+The GitHub Actions workflow publishes this image to Docker Hub. Configure these
+repository settings before running it:
+
+- Variable `DOCKERHUB_USERNAME`: `lishan2023`
+- Secret `DOCKERHUB_TOKEN`: a Docker Hub personal access token with permission
+  to push this repository
 
 ## Configure the instance
 
-Create a Vast.ai GPU instance from the pushed image, then configure:
+Create a Vast.ai GPU instance from
+`lishan2023/creatorops-ai-backend:latest`, then configure:
 
 - Exposed HTTP port: `8000`
 - Docker port option: `-p 8000:8000`
@@ -55,9 +63,10 @@ values in Vast.ai:
 ```env
 OPENAI_API_KEY=configure_as_a_vast_secret
 OPENAI_MODEL=gpt-5.6
+OPENAI_IMAGE_MODEL=gpt-image-2
 DATA_DIR=/workspace/data
 VOICE_REFERENCE_PATH=private/my_voice.wav
-CORS_ORIGINS=https://your-project.vercel.app
+CORS_ORIGINS=https://creatorops-ai-one.vercel.app
 CHATTERBOX_DEVICE=cuda
 PORT=8000
 HF_HOME=/workspace/data/models
@@ -101,10 +110,15 @@ Create a stable HTTPS address for the Vast.ai API, then set this Vercel
 Production environment variable and redeploy the frontend:
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.your-domain.example
+NEXT_PUBLIC_API_URL=https://your-fastapi-backend.example.com
 ```
 
-Set the exact Vercel production origin in the instance's `CORS_ORIGINS` value.
+Replace the example FastAPI hostname with the real stable HTTPS backend address.
+Set the instance's production origin to:
+
+```env
+CORS_ORIGINS=https://creatorops-ai-one.vercel.app
+```
 
 ## Current production limits
 

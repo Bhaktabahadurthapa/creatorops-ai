@@ -124,6 +124,18 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
+function countSpokenWords(text: string): number {
+  const withoutPauseMarkers = text.replace(/\[pause\s+[\d.]+s\]/gi, " ");
+  return withoutPauseMarkers.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu)
+    ?.length ?? 0;
+}
+
+function formatTimestamp(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 async function pollForJob(
   submission: JobSubmission,
   onStatus: (status: JobStatus) => void,
@@ -187,7 +199,7 @@ export default function CreatePage() {
   const [idea, setIdea] = useState("");
   const [platform, setPlatform] = useState("YouTube");
   const [tone, setTone] = useState("Professional");
-  const [duration, setDuration] = useState(60);
+  const [duration, setDuration] = useState(30);
   const [result, setResult] = useState<ScriptResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -641,7 +653,7 @@ export default function CreatePage() {
     );
     if (sceneMissingMedia) {
       setVideoError(
-        `Choose an image or video for scene ${sceneMissingMedia.scene_number}, or switch it to Generate from Text.`,
+        `Choose an image or video for scene ${sceneMissingMedia.scene_number}, or switch it to Generate AI Visual.`,
       );
       return;
     }
@@ -730,6 +742,15 @@ export default function CreatePage() {
         (sceneSources[scene.scene_number] ?? "text") === "media" &&
         !sceneMedia[scene.scene_number],
     ) ?? false;
+  const narrationWordCount = result ? countSpokenWords(result.narration) : 0;
+  const estimatedRuntimeSeconds = Math.round(narrationWordCount / 2.3);
+  let elapsedSceneSeconds = 0;
+  const sceneTimings =
+    result?.scenes.map((scene) => {
+      const start = elapsedSceneSeconds;
+      elapsedSceneSeconds += scene.duration_seconds;
+      return { start, end: elapsedSceneSeconds };
+    }) ?? [];
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-12 text-white">
@@ -808,23 +829,41 @@ export default function CreatePage() {
             </div>
 
             <div>
-              <label
-                htmlFor="duration"
-                className="mb-2 block text-sm font-medium"
-              >
-                Duration
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="duration" className="text-sm font-medium">
+                  Duration
+                </label>
+                <output
+                  htmlFor="duration"
+                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 font-mono text-xs font-semibold text-cyan-200"
+                >
+                  {duration < 60
+                    ? `${duration} seconds`
+                    : `${Math.floor(duration / 60)}m${
+                        duration % 60 ? ` ${duration % 60}s` : ""
+                      }`}
+                </output>
+              </div>
 
-              <select
-                id="duration"
-                value={duration}
-                onChange={(event) => setDuration(Number(event.target.value))}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-              >
-                <option value={30}>30 seconds</option>
-                <option value={60}>60 seconds</option>
-                <option value={120}>2 minutes</option>
-              </select>
+              <div className="rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3">
+                <input
+                  id="duration"
+                  type="range"
+                  min={5}
+                  max={120}
+                  step={5}
+                  value={duration}
+                  onChange={(event) => setDuration(Number(event.target.value))}
+                  aria-valuetext={`${duration} seconds`}
+                  className="h-2 w-full cursor-pointer accent-cyan-400"
+                />
+                <div className="mt-2 flex justify-between font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                  <span>5 sec</span>
+                  <span>30 sec</span>
+                  <span>1 min</span>
+                  <span>2 min</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -972,9 +1011,14 @@ export default function CreatePage() {
             </div>
 
             <article className="border-b border-slate-800 bg-slate-950/40 p-6 sm:p-8">
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">
-                Full narration
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">
+                  Audio script
+                </p>
+                <p className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                  {narrationWordCount} words · ~{estimatedRuntimeSeconds}s spoken
+                </p>
+              </div>
               <p className="mt-4 max-w-4xl whitespace-pre-wrap leading-8 text-slate-300">
                 {result.narration}
               </p>
@@ -1088,7 +1132,7 @@ export default function CreatePage() {
               </div>
 
               <ol className="mt-8 space-y-4">
-                {result.scenes.map((scene) => {
+                {result.scenes.map((scene, sceneIndex) => {
                   const source = sceneSources[scene.scene_number] ?? "text";
                   const selectedMedia =
                     source === "media"
@@ -1112,12 +1156,16 @@ export default function CreatePage() {
                         <p className="rounded-full bg-slate-950 px-3 py-1 font-mono text-xs text-slate-400 lg:mt-5 lg:w-fit">
                           {scene.duration_seconds}s
                         </p>
+                        <p className="mt-2 font-mono text-[10px] text-slate-500">
+                          {formatTimestamp(sceneTimings[sceneIndex].start)}–
+                          {formatTimestamp(sceneTimings[sceneIndex].end)}
+                        </p>
                       </div>
 
                       <div className="grid gap-6 p-5 sm:p-6 xl:grid-cols-2">
                         <div>
                           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500">
-                            Visual direction
+                            Avatar video prompt
                           </p>
                           <p className="mt-2 leading-7 text-slate-200">
                             {scene.visual_description}
@@ -1126,7 +1174,7 @@ export default function CreatePage() {
 
                         <div>
                           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500">
-                            Narration
+                            Dialogue
                           </p>
                           <p className="mt-2 leading-7 text-slate-300">
                             {scene.narration}
@@ -1161,11 +1209,11 @@ export default function CreatePage() {
                               }`}
                             >
                               <span className="block text-sm font-bold text-white">
-                                Generate from Text
+                                Generate AI Visual
                               </span>
                               <span className="mt-1 block text-xs leading-5 text-slate-400">
-                                Animated typography, depth, color, and scene
-                                progress created from your direction.
+                                Create a text-free AI scene image, then add
+                                camera motion without an upload.
                               </span>
                             </button>
                             <button
@@ -1203,7 +1251,7 @@ export default function CreatePage() {
                                 htmlFor={`scene-text-${scene.scene_number}`}
                                 className="font-mono text-[10px] uppercase tracking-[0.2em] text-violet-300"
                               >
-                                Text scene direction
+                                AI visual prompt
                               </label>
                               <textarea
                                 id={`scene-text-${scene.scene_number}`}
@@ -1223,9 +1271,9 @@ export default function CreatePage() {
                                 className="mt-3 w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm leading-6 text-slate-200 outline-none focus:border-violet-400"
                               />
                               <p className="mt-2 text-xs text-slate-500">
-                                No image is required. The subtitle becomes the
-                                headline and this direction becomes supporting
-                                copy in the animated scene.
+                                OpenAI creates a text-free scene image from this
+                                prompt. CreatorOps then adds motion and syncs it
+                                with the narration and subtitles.
                               </p>
                             </div>
                           ) : (
@@ -1257,7 +1305,7 @@ export default function CreatePage() {
                                   ? "Uploading and validating…"
                                   : selectedMedia
                                     ? `${selectedMedia.filename} is ready.`
-                                    : "Choose one image or video, or switch back to Generate from Text."}
+                                    : "Choose one image or video, or switch back to Generate AI Visual."}
                               </p>
                             </div>
                           )}
@@ -1379,7 +1427,7 @@ export default function CreatePage() {
                         Render the scene plan
                       </h4>
                       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                        Mix generated scenes with your uploaded images and video
+                        Mix AI-generated visuals with your uploaded images and video
                         clips in one narration-synced MP4.
                       </p>
                     </div>
@@ -1529,7 +1577,7 @@ export default function CreatePage() {
                     <p className="mt-3 text-sm text-cyan-200/80" role="status">
                       {videoJobStatus === "queued"
                         ? "Your render is queued. The page will begin tracking it automatically."
-                        : "HyperFrames and FFmpeg are rendering the final video. You can keep this page open."}
+                        : "OpenAI is creating scene visuals, then FFmpeg will animate and render the final video. You can keep this page open."}
                     </p>
                   )}
 
@@ -1541,7 +1589,7 @@ export default function CreatePage() {
                   {audioId && hasMissingSelectedMedia && (
                     <p className="mt-3 text-xs text-amber-300/80">
                       Upload media for each scene set to Image / Video, or
-                      switch that scene to Generate from Text.
+                      switch that scene to Generate AI Visual.
                     </p>
                   )}
 

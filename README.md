@@ -119,7 +119,7 @@ CreatorOps AI combines the complete production workflow into one application.
 - Produces a title, hook, narration, call to action, subtitles, and timed scene plan.
 - Generates narration from an authorized voice reference using Chatterbox Turbo.
 - Allows users to upload images, short video clips, a logo, and background music.
-- Generates animated text scenes when no media is uploaded.
+- Generates text-free AI scene images when no media is uploaded, then animates them with FFmpeg.
 - Adds zoom, pan, fades, and crossfade transitions to still images.
 - Synchronizes all scenes with the generated narration.
 - Generates SRT subtitles and burns them into the video when supported.
@@ -200,15 +200,15 @@ WAV speech.
 - Pan down
 - No motion
 
-### 5. Generated text scenes
+### 5. AI-generated visual scenes
 
-**What:** Creates animated visual scenes from text when no media is uploaded.
+**What:** Converts each scene prompt into a text-free visual when no media is uploaded.
 
-**How:** HyperFrames creates animated typography and layered motion. FFmpeg text cards are used as a fallback.
+**How:** The OpenAI Image API generates a landscape scene image. FFmpeg adds pan, zoom, fades, transitions, narration, and subtitles.
 
-**Why:** A complete video can still be produced without external images or clips.
+**Why:** Internal production prompts become actual scene imagery instead of appearing as text inside the exported video.
 
-**When:** Used when a scene source is set to **Generate from Text**.
+**When:** Used when a scene source is set to **Generate AI Visual**.
 
 ### 6. Video rendering pipeline
 
@@ -275,9 +275,9 @@ OpenAI structured script and scene plan
    ↓
 Chatterbox Turbo authorized narration WAV
    ↓
-Uploaded media or generated text scenes
+Uploaded media or AI-generated visual scenes
    ↓
-FFmpeg + HyperFrames rendering pipeline
+FFmpeg motion and rendering pipeline
    ↓
 Motion + transitions + subtitles + logo + music
    ↓
@@ -406,6 +406,7 @@ http://localhost:3000
 ```env
 OPENAI_API_KEY=your_real_openai_api_key
 OPENAI_MODEL=your_available_model_id
+OPENAI_IMAGE_MODEL=gpt-image-2
 VOICE_REFERENCE_PATH=private/my_voice.wav
 CHATTERBOX_DEVICE=auto
 ```
@@ -414,6 +415,21 @@ CHATTERBOX_DEVICE=auto
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+```
+
+### Production
+
+Configure the frontend in Vercel with the stable HTTPS FastAPI address, replacing
+the example hostname with the deployed backend URL:
+
+```env
+NEXT_PUBLIC_API_URL=https://your-fastapi-backend.example.com
+```
+
+Configure the backend with the exact Vercel production origin:
+
+```env
+CORS_ORIGINS=https://creatorops-ai-one.vercel.app
 ```
 
 ### Rules
@@ -434,14 +450,17 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 5. Copy the key once.
 6. Add the key to `backend/.env`.
 7. Set `OPENAI_MODEL` to an exact model ID available to the project.
-8. Confirm API billing or credits are active.
-9. Restart the backend.
+8. Set `OPENAI_IMAGE_MODEL=gpt-image-2` for generated scene visuals.
+9. Confirm API billing or credits are active. GPT Image access may require
+   organization verification.
+10. Restart the backend.
 
 Example:
 
 ```env
 OPENAI_API_KEY=your_real_openai_api_key
 OPENAI_MODEL=your_available_model_id
+OPENAI_IMAGE_MODEL=gpt-image-2
 ```
 
 ---
@@ -552,7 +571,7 @@ npm run build
 1. Enter a short content idea.
 2. Generate the script.
 3. Generate authorized narration.
-4. Upload media or generate text scenes.
+4. Upload media or generate AI visual scenes.
 5. Assign one source to every scene.
 6. Enable subtitles.
 7. Select 720p or 1080p.
@@ -604,6 +623,8 @@ Suggested length: 2–3 minutes.
 - Project metadata is stored in browser localStorage, not a database.
 - Clearing browser storage removes the local project list.
 - Generated backend files do not yet have automatic expiration or cleanup.
+- AI visual generation uses paid OpenAI API credits, may require organization
+  verification, and adds generation time for every generated scene.
 - HyperFrames requires a compatible local browser environment.
 - Subtitle burn-in depends on the installed FFmpeg build.
 - No user authentication or multi-user isolation is included.
@@ -657,9 +678,9 @@ Codex supported the development workflow by helping to:
 ## Deployment
 
 The Next.js frontend can be deployed to Vercel through the included production
-GitHub Action. The FastAPI, GPU-enabled Chatterbox Turbo, HyperFrames, and FFmpeg backend is
-packaged for a Vast.ai GPU instance with persistent storage and asynchronous render
-job polling.
+GitHub Action. The FastAPI backend, OpenAI scene generation, GPU-enabled
+Chatterbox Turbo, HyperFrames, and FFmpeg are packaged for a Vast.ai GPU
+instance with persistent storage and asynchronous render-job polling.
 
 See [Deploying CreatorOps AI with Vercel](docs/VERCEL_DEPLOYMENT.md) for the
 required Vercel project settings, GitHub secrets, backend URL, safety switch,
@@ -679,7 +700,7 @@ for the Docker build, Pod volume, environment, port, and readiness setup.
 - [x] Authorized Chatterbox Turbo narration
 - [x] Media upload
 - [x] Animated image motion
-- [x] Generated text scenes
+- [x] AI-generated visual scenes
 - [x] Subtitles and SRT generation
 - [x] Logo and background music
 - [x] 720p and 1080p MP4 export

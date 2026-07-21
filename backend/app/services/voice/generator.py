@@ -12,6 +12,10 @@ from app.config import get_model_cache_dir
 
 SHORT_PAUSE_MS = 180
 PARAGRAPH_PAUSE_MS = 350
+PAUSE_MARKER_PATTERN = re.compile(
+    r"\[pause\s+([0-9]+(?:\.[0-9]+)?)s\]",
+    re.IGNORECASE,
+)
 
 _MODEL: Any | None = None
 
@@ -122,27 +126,41 @@ def clean_script(text: str) -> str:
 def split_for_speech(text: str, max_chars: int = 240) -> list[tuple[str, int]]:
     """Split narration into natural chunks paired with pause lengths."""
     chunks: list[tuple[str, int]] = []
-    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    pause_segments = PAUSE_MARKER_PATTERN.split(text)
 
-    for paragraph in paragraphs:
-        paragraph = " ".join(paragraph.splitlines())
-        sentences = [
-            sentence.strip()
-            for sentence in re.split(r"(?<=[.!?])\s+", paragraph)
-            if sentence.strip()
+    for segment_index in range(0, len(pause_segments), 2):
+        segment = pause_segments[segment_index]
+        paragraphs = [
+            part.strip()
+            for part in re.split(r"\n\s*\n", segment)
+            if part.strip()
         ]
-        current = ""
 
-        for sentence in sentences:
-            candidate = f"{current} {sentence}".strip()
-            if current and len(candidate) > max_chars:
-                chunks.append((current, SHORT_PAUSE_MS))
-                current = sentence
-            else:
-                current = candidate
+        for paragraph in paragraphs:
+            paragraph = " ".join(paragraph.splitlines())
+            sentences = [
+                sentence.strip()
+                for sentence in re.split(r"(?<=[.!?])\s+", paragraph)
+                if sentence.strip()
+            ]
+            current = ""
 
-        if current:
-            chunks.append((current, PARAGRAPH_PAUSE_MS))
+            for sentence in sentences:
+                candidate = f"{current} {sentence}".strip()
+                if current and len(candidate) > max_chars:
+                    chunks.append((current, SHORT_PAUSE_MS))
+                    current = sentence
+                else:
+                    current = candidate
+
+            if current:
+                chunks.append((current, PARAGRAPH_PAUSE_MS))
+
+        pause_value_index = segment_index + 1
+        if pause_value_index < len(pause_segments) and chunks:
+            pause_ms = round(float(pause_segments[pause_value_index]) * 1000)
+            pause_ms = max(0, min(pause_ms, 5000))
+            chunks[-1] = (chunks[-1][0], pause_ms)
 
     if chunks:
         chunks[-1] = (chunks[-1][0], 0)
@@ -168,6 +186,8 @@ def generate_audio(
         raise ValueError("Voice output must use the .wav extension.")
 
     chunks = split_for_speech(cleaned_text)
+    if not chunks:
+        raise ValueError("Narration must contain speakable text.")
     partial_path = output_path.with_suffix(".partial.wav")
     normalized_path = output_path.with_suffix(".normalized.wav")
 
