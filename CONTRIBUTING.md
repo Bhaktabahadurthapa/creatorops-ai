@@ -31,9 +31,9 @@ npm run lint
 npm run build
 ```
 
-Video and voice tests must mock OpenAI, XTTS, HyperFrames, and FFmpeg unless a
+Video and voice tests must mock OpenAI, Chatterbox Turbo, HyperFrames, and FFmpeg unless a
 manual smoke test is explicitly required. Unit tests must not call paid APIs,
-load the XTTS model, or perform expensive video rendering.
+load the Chatterbox Turbo model, or perform expensive video rendering.
 
 ## Pull requests
 

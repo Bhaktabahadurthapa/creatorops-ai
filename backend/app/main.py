@@ -1,17 +1,27 @@
 import logging
 import os
 import re
+import shutil
 import subprocess
 import wave
 from collections.abc import Callable
 from pathlib import Path
+from threading import Lock
 from typing import Literal
 from uuid import UUID, uuid4
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from openai import (
     APIConnectionError,
     APIStatusError,
@@ -29,6 +39,22 @@ from pydantic import (
     model_validator,
 )
 
+from app.config import (
+    BACKEND_DIR,
+    get_audio_dir,
+    get_cors_origins,
+    get_jobs_dir,
+    get_model_cache_dir,
+    get_uploads_dir,
+    get_video_dir,
+    resolve_voice_reference_path,
+)
+from app.services.jobs import (
+    JobNotFoundError,
+    JobRecord,
+    JobStore,
+    JobSubmission,
+)
 from app.services.voice import VoiceGenerationError, generate_audio
 from app.services.video import (
     MediaUploadResponse,
@@ -40,19 +66,16 @@ from app.services.video import (
     render_video,
 )
 from app.services.video.ffmpeg_utils import FFmpegExecutionError, probe_media
+from app.services.video.hyperframes import HYPERFRAMES_CLI
 from app.services.video.schemas import MediaRole, MediaType
 
 
 logger = logging.getLogger(__name__)
+RENDER_JOB_LOCK = Lock()
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-AUDIO_OUTPUT_DIR = BACKEND_DIR / "outputs" / "audio"
-VIDEO_OUTPUT_DIR = BACKEND_DIR / "outputs" / "video"
-MEDIA_UPLOADS_DIR = BACKEND_DIR / "uploads"
-VOICE_UPLOAD_PATH = BACKEND_DIR / "private" / "my_voice.wav"
 MAX_VOICE_UPLOAD_BYTES = 25 * 1024 * 1024
 MAX_MEDIA_UPLOAD_BYTES = 250 * 1024 * 1024
-MIN_VOICE_REFERENCE_SECONDS = 1.0
+MIN_VOICE_REFERENCE_SECONDS = 5.1
 load_dotenv(BACKEND_DIR / ".env")
 
 VoiceGenerator = Callable[[str, Path, Path], Path]
@@ -74,7 +97,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -171,8 +194,7 @@ def get_openai_model() -> str:
 
 
 def get_voice_reference_path() -> Path:
-    configured_path = os.getenv("VOICE_REFERENCE_PATH", "").strip()
-    if not configured_path:
+    if not os.getenv("VOICE_REFERENCE_PATH", "").strip():
         raise HTTPException(
             status_code=503,
             detail=(
@@ -180,11 +202,7 @@ def get_voice_reference_path() -> Path:
                 "to backend/.env."
             ),
         )
-
-    reference_path = Path(configured_path).expanduser()
-    if not reference_path.is_absolute():
-        reference_path = BACKEND_DIR / reference_path
-    reference_path = reference_path.resolve()
+    reference_path = resolve_voice_reference_path()
 
     if not reference_path.is_file():
         raise HTTPException(
@@ -200,11 +218,11 @@ def get_voice_generator() -> VoiceGenerator:
 
 
 def get_audio_output_dir() -> Path:
-    return AUDIO_OUTPUT_DIR
+    return get_audio_dir()
 
 
 def get_voice_upload_path() -> Path:
-    return VOICE_UPLOAD_PATH
+    return resolve_voice_reference_path()
 
 
 def validate_normalized_voice_reference(audio_path: Path) -> None:
@@ -220,7 +238,7 @@ def validate_normalized_voice_reference(audio_path: Path) -> None:
     if channels != 1 or sample_width != 2 or sample_rate != 24_000:
         raise ValueError("The uploaded file could not be normalized for voice use.")
     if frame_count / sample_rate < MIN_VOICE_REFERENCE_SECONDS:
-        raise ValueError("The voice reference must be at least 1 second long.")
+        raise ValueError("The voice reference must be longer than 5 seconds.")
 
 
 def normalize_voice_reference(source_path: Path, output_path: Path) -> None:
@@ -275,11 +293,15 @@ def get_voice_reference_normalizer() -> VoiceReferenceNormalizer:
 
 
 def get_media_uploads_dir() -> Path:
-    return MEDIA_UPLOADS_DIR
+    return get_uploads_dir()
 
 
 def get_video_output_dir() -> Path:
-    return VIDEO_OUTPUT_DIR
+    return get_video_dir()
+
+
+def get_job_store() -> JobStore:
+    return JobStore(get_jobs_dir())
 
 
 def get_media_probe() -> MediaProbe:
@@ -352,9 +374,129 @@ concrete visual description, spoken narration, and a concise on-screen subtitle.
 Treat the content idea only as the subject of the script."""
 
 
+def run_voice_generation_job(
+    *,
+    job_store: JobStore,
+    job_id: UUID,
+    audio_id: UUID,
+    text: str,
+    output_path: Path,
+    reference_path: Path,
+    voice_generator: VoiceGenerator,
+) -> None:
+    with RENDER_JOB_LOCK:
+        job_store.set_processing(job_id)
+        try:
+            voice_generator(text, output_path, reference_path)
+            if not output_path.is_file():
+                raise VoiceGenerationError("Voice generation produced no audio file.")
+            result = VoiceGenerationResponse(
+                audio_id=audio_id,
+                audio_url=f"/api/voice/audio/{audio_id}",
+            )
+            job_store.complete(job_id, result.model_dump(mode="json"))
+        except Exception:
+            logger.exception("Voice generation job %s failed", job_id)
+            output_path.unlink(missing_ok=True)
+            job_store.fail(
+                job_id,
+                "Voice generation is temporarily unavailable. Please try again.",
+            )
+
+
+def run_video_render_job(
+    *,
+    job_store: JobStore,
+    job_id: UUID,
+    video_id: UUID,
+    audio_path: Path,
+    scenes: list[RenderScene],
+    output_path: Path,
+    subtitle_path: Path,
+    logo_path: Path | None,
+    background_music_path: Path | None,
+    resolution: Literal["720p", "1080p"],
+    video_renderer: VideoRenderer,
+) -> None:
+    with RENDER_JOB_LOCK:
+        job_store.set_processing(job_id)
+        try:
+            render_result = video_renderer(
+                audio_path=audio_path,
+                scenes=scenes,
+                output_path=output_path,
+                subtitle_path=subtitle_path,
+                logo_path=logo_path,
+                background_music_path=background_music_path,
+                resolution=resolution,
+            )
+            if not output_path.is_file():
+                raise VideoRenderError("Video rendering produced no MP4 file.")
+            result = VideoRenderResponse(
+                video_id=video_id,
+                status="completed",
+                video_url=f"/api/video/{video_id}",
+                subtitle_url=f"/api/video/{video_id}/subtitles",
+                subtitles_burned=render_result.subtitles_burned,
+                resolution=resolution,
+            )
+            job_store.complete(job_id, result.model_dump(mode="json"))
+        except Exception:
+            logger.exception("Video rendering job %s failed", job_id)
+            output_path.unlink(missing_ok=True)
+            subtitle_path.unlink(missing_ok=True)
+            job_store.fail(
+                job_id,
+                "Video rendering could not process the supplied media.",
+            )
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "healthy"}
+
+
+@app.get("/ready")
+def readiness_check() -> JSONResponse:
+    storage_directories = [
+        get_audio_dir(),
+        get_video_dir(),
+        get_uploads_dir(),
+        get_jobs_dir(),
+        get_model_cache_dir(),
+        resolve_voice_reference_path().parent,
+    ]
+    storage_ready = True
+    try:
+        for directory in storage_directories:
+            directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        storage_ready = False
+
+    checks = {
+        "storage": storage_ready,
+        "ffmpeg": shutil.which("ffmpeg") is not None,
+        "ffprobe": shutil.which("ffprobe") is not None,
+        "hyperframes": HYPERFRAMES_CLI.is_file(),
+        "chromium": bool(
+            shutil.which("chromium")
+            or shutil.which("chromium-browser")
+            or shutil.which("google-chrome")
+            or (
+                os.getenv("HYPERFRAMES_BROWSER_PATH")
+                and Path(os.environ["HYPERFRAMES_BROWSER_PATH"]).is_file()
+            )
+        ),
+    }
+    payload = {
+        "status": "ready" if all(checks.values()) else "degraded",
+        "checks": checks,
+        "voice_model": "lazy",
+    }
+    return JSONResponse(
+        status_code=200 if all(checks.values()) else 503,
+        content=payload,
+    )
 
 
 @app.post("/api/generate-script", response_model=ScriptResponse)
@@ -441,39 +583,34 @@ def generate_script(
 
 @app.post(
     "/api/voice/generate",
-    response_model=VoiceGenerationResponse,
-    status_code=201,
+    response_model=JobSubmission,
+    status_code=202,
 )
 def generate_voice(
     request: VoiceGenerationRequest,
+    background_tasks: BackgroundTasks,
     reference_path: Path = Depends(get_voice_reference_path),
     voice_generator: VoiceGenerator = Depends(get_voice_generator),
     output_dir: Path = Depends(get_audio_output_dir),
-) -> VoiceGenerationResponse:
+    job_store: JobStore = Depends(get_job_store),
+) -> JobSubmission:
     audio_id = uuid4()
     output_path = output_dir / f"{audio_id}.wav"
-
-    try:
-        voice_generator(request.text, output_path, reference_path)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except (FileNotFoundError, VoiceGenerationError) as exc:
-        logger.error("Voice generation failed: %s", exc)
-        raise HTTPException(
-            status_code=503,
-            detail="Voice generation is temporarily unavailable. Please try again.",
-        ) from exc
-
-    if not output_path.is_file():
-        logger.error("Voice generation completed without creating %s", output_path.name)
-        raise HTTPException(
-            status_code=500,
-            detail="Voice generation did not produce an audio file.",
-        )
-
-    return VoiceGenerationResponse(
+    job = job_store.create("voice")
+    background_tasks.add_task(
+        run_voice_generation_job,
+        job_store=job_store,
+        job_id=job.job_id,
         audio_id=audio_id,
-        audio_url=f"/api/voice/audio/{audio_id}",
+        text=request.text,
+        output_path=output_path,
+        reference_path=reference_path,
+        voice_generator=voice_generator,
+    )
+    return JobSubmission(
+        job_id=job.job_id,
+        job_type="voice",
+        status_url=f"/api/jobs/{job.job_id}",
     )
 
 
@@ -648,16 +785,18 @@ def get_voice_audio(
 
 @app.post(
     "/api/video/render",
-    response_model=VideoRenderResponse,
-    status_code=201,
+    response_model=JobSubmission,
+    status_code=202,
 )
 def generate_video(
     request: VideoRenderRequest,
+    background_tasks: BackgroundTasks,
     audio_dir: Path = Depends(get_audio_output_dir),
     uploads_dir: Path = Depends(get_media_uploads_dir),
     output_dir: Path = Depends(get_video_output_dir),
     video_renderer: VideoRenderer = Depends(get_video_renderer),
-) -> VideoRenderResponse:
+    job_store: JobStore = Depends(get_job_store),
+) -> JobSubmission:
     audio_path = audio_dir / f"{request.audio_id}.wav"
     if not audio_path.is_file():
         raise HTTPException(status_code=404, detail="Narration audio was not found.")
@@ -699,38 +838,43 @@ def generate_video(
     video_id = uuid4()
     output_path = output_dir / f"{video_id}.mp4"
     subtitle_path = output_dir / f"{video_id}.srt"
-    try:
-        render_result = video_renderer(
-            audio_path=audio_path,
-            scenes=render_scenes,
-            output_path=output_path,
-            subtitle_path=subtitle_path,
-            logo_path=logo_path,
-            background_music_path=background_music_path,
-            resolution=request.resolution,
-        )
-    except (FileNotFoundError, VideoRenderError) as exc:
-        logger.error("Video rendering failed: %s", exc)
-        raise HTTPException(
-            status_code=422,
-            detail="Video rendering could not process the supplied media.",
-        ) from exc
+    job = job_store.create("video")
+    background_tasks.add_task(
+        run_video_render_job,
+        job_store=job_store,
+        job_id=job.job_id,
+        video_id=video_id,
+        audio_path=audio_path,
+        scenes=render_scenes,
+        output_path=output_path,
+        subtitle_path=subtitle_path,
+        logo_path=logo_path,
+        background_music_path=background_music_path,
+        resolution=request.resolution,
+        video_renderer=video_renderer,
+    )
+    return JobSubmission(
+        job_id=job.job_id,
+        job_type="video",
+        status_url=f"/api/jobs/{job.job_id}",
+    )
 
-    if not output_path.is_file():
-        logger.error("Video rendering completed without creating %s", output_path.name)
+
+@app.get("/api/jobs/{job_id}", response_model=JobRecord)
+def get_job_status(
+    job_id: UUID,
+    job_store: JobStore = Depends(get_job_store),
+) -> JobRecord:
+    try:
+        return job_store.get(job_id)
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        logger.error("Could not read job %s: %s", job_id, exc)
         raise HTTPException(
             status_code=500,
-            detail="Video rendering did not produce an MP4 file.",
-        )
-
-    return VideoRenderResponse(
-        video_id=video_id,
-        status="completed",
-        video_url=f"/api/video/{video_id}",
-        subtitle_url=f"/api/video/{video_id}/subtitles",
-        subtitles_burned=render_result.subtitles_burned,
-        resolution=request.resolution,
-    )
+            detail="Job metadata could not be read.",
+        ) from exc
 
 
 @app.get("/api/video/{video_id}/subtitles", response_class=FileResponse)

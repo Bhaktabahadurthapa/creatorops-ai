@@ -10,14 +10,15 @@ Browser
   ↓
 Next.js frontend on Vercel
   ↓ NEXT_PUBLIC_API_URL
-Public FastAPI backend on a separate host
+FastAPI backend on a Vast.ai GPU instance
   ↓
-OpenAI + XTTS + FFmpeg + local or persistent media storage
+OpenAI + Chatterbox Turbo + FFmpeg + local or persistent media storage
 ```
 
-The current backend cannot run as part of this Vercel frontend deployment. It
-loads a voice model, invokes FFmpeg, and writes uploaded and generated files to
-disk. Deploy it to a persistent Python-capable host before enabling the Vercel
+The backend cannot run as part of this Vercel frontend deployment. It loads a
+GPU voice model, invokes HyperFrames and FFmpeg, and writes uploaded and
+generated files to persistent storage. Follow the
+[Vast.ai deployment guide](VAST_DEPLOYMENT.md) before enabling the Vercel
 workflow.
 
 ## What you need to provide

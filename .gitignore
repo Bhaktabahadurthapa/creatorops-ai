@@ -23,6 +23,8 @@ frontend/.next/
 backend/private/
 backend/outputs/
 backend/uploads/
+backend/jobs/
+backend/models/
 outputs/
 *.wav
 *.mp3

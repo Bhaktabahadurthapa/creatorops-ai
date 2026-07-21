@@ -74,6 +74,29 @@ type VideoResult = {
   resolution: VideoResolution;
 };
 
+type JobStatus = "queued" | "processing" | "completed" | "failed";
+
+type JobSubmission = {
+  job_id: string;
+  job_type: "voice" | "video";
+  status: "queued";
+  status_url: string;
+};
+
+type JobResponse = {
+  job_id: string;
+  job_type: "voice" | "video";
+  status: JobStatus;
+  result: Record<string, unknown> | null;
+  error: string | null;
+};
+
+const apiUrl = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
+).replace(/\/$/, "");
+const jobPollIntervalMs = 1500;
+const jobPollLimit = 1200;
+
 type ProjectSavePatch = {
   title?: string;
   audio_url?: string | null;
@@ -97,6 +120,69 @@ async function getResponseError(
   return fallback;
 }
 
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function pollForJob(
+  submission: JobSubmission,
+  onStatus: (status: JobStatus) => void,
+): Promise<JobResponse> {
+  for (let attempt = 0; attempt < jobPollLimit; attempt += 1) {
+    const response = await fetch(`${apiUrl}${submission.status_url}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(
+        await getResponseError(response, "Could not check rendering progress."),
+      );
+    }
+
+    const job: JobResponse = await response.json();
+    onStatus(job.status);
+    if (job.status === "completed") {
+      return job;
+    }
+    if (job.status === "failed") {
+      throw new Error(job.error ?? "The background job failed.");
+    }
+    await wait(jobPollIntervalMs);
+  }
+
+  throw new Error("The background job timed out. Please try again.");
+}
+
+function readVoiceResult(job: JobResponse): VoiceResult {
+  const audioId = job.result?.audio_id;
+  const audioPath = job.result?.audio_url;
+  if (typeof audioId !== "string" || typeof audioPath !== "string") {
+    throw new Error("Voice generation completed without an audio result.");
+  }
+  return { audio_id: audioId, audio_url: audioPath };
+}
+
+function readVideoResult(job: JobResponse): VideoResult {
+  const result = job.result;
+  if (
+    typeof result?.video_id !== "string" ||
+    result.status !== "completed" ||
+    typeof result.video_url !== "string" ||
+    typeof result.subtitle_url !== "string" ||
+    typeof result.subtitles_burned !== "boolean" ||
+    (result.resolution !== "720p" && result.resolution !== "1080p")
+  ) {
+    throw new Error("Video rendering completed without a video result.");
+  }
+  return {
+    video_id: result.video_id,
+    status: "completed",
+    video_url: result.video_url,
+    subtitle_url: result.subtitle_url,
+    subtitles_burned: result.subtitles_burned,
+    resolution: result.resolution,
+  };
+}
+
 export default function CreatePage() {
   const [idea, setIdea] = useState("");
   const [platform, setPlatform] = useState("YouTube");
@@ -106,6 +192,7 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [voiceLoading, setVoiceLoading] = useState(false);
+  const [voiceJobStatus, setVoiceJobStatus] = useState<JobStatus | null>(null);
   const [voiceError, setVoiceError] = useState("");
   const [audioId, setAudioId] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
@@ -143,6 +230,7 @@ export default function CreatePage() {
   const [optionalUploadLoading, setOptionalUploadLoading] = useState("");
   const [mediaError, setMediaError] = useState("");
   const [videoLoading, setVideoLoading] = useState(false);
+  const [videoJobStatus, setVideoJobStatus] = useState<JobStatus | null>(null);
   const [videoError, setVideoError] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [subtitleUrl, setSubtitleUrl] = useState("");
@@ -232,8 +320,6 @@ export default function CreatePage() {
     const controller = new AbortController();
 
     async function loadVoiceReferenceStatus() {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
-
       try {
         const response = await fetch(`${apiUrl}/api/voice/reference/status`, {
           signal: controller.signal,
@@ -283,6 +369,7 @@ export default function CreatePage() {
     setError("");
     setResult(null);
     setVoiceError("");
+    setVoiceJobStatus(null);
     setAudioId("");
     setAudioUrl("");
     if (!projectId.current) {
@@ -298,6 +385,7 @@ export default function CreatePage() {
     setBackgroundMusic(null);
     setMediaError("");
     setVideoError("");
+    setVideoJobStatus(null);
     setVideoUrl("");
     setSubtitleUrl("");
     setSubtitlesBurned(false);
@@ -309,8 +397,6 @@ export default function CreatePage() {
     });
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
-
       const response = await fetch(`${apiUrl}/api/generate-script`, {
         method: "POST",
         headers: {
@@ -359,6 +445,7 @@ export default function CreatePage() {
     }
 
     setVoiceLoading(true);
+    setVoiceJobStatus("queued");
     setVoiceError("");
     setAudioId("");
     setAudioUrl("");
@@ -373,7 +460,6 @@ export default function CreatePage() {
     });
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
       const response = await fetch(`${apiUrl}/api/voice/generate`, {
         method: "POST",
         headers: {
@@ -393,7 +479,9 @@ export default function CreatePage() {
         );
       }
 
-      const data: VoiceResult = await response.json();
+      const submission: JobSubmission = await response.json();
+      const job = await pollForJob(submission, setVoiceJobStatus);
+      const data = readVoiceResult(job);
       const generatedAudioUrl = `${apiUrl}${data.audio_url}`;
       setAudioId(data.audio_id);
       setAudioUrl(generatedAudioUrl);
@@ -427,7 +515,6 @@ export default function CreatePage() {
     setVoiceUploadError("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
       const formData = new FormData();
       formData.append("file", voiceFile);
 
@@ -465,7 +552,6 @@ export default function CreatePage() {
     file: File,
     mediaRole: "scene" | "logo" | "background_music",
   ): Promise<UploadedMedia> {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
     if (!projectId.current) {
       projectId.current = crypto.randomUUID();
     }
@@ -560,6 +646,7 @@ export default function CreatePage() {
       return;
     }
     setVideoLoading(true);
+    setVideoJobStatus("queued");
     setVideoError("");
     setVideoUrl("");
     setSubtitleUrl("");
@@ -570,7 +657,6 @@ export default function CreatePage() {
     });
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
       const response = await fetch(`${apiUrl}/api/video/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -609,7 +695,9 @@ export default function CreatePage() {
         );
       }
 
-      const video: VideoResult = await response.json();
+      const submission: JobSubmission = await response.json();
+      const job = await pollForJob(submission, setVideoJobStatus);
+      const video = readVideoResult(job);
       const generatedVideoUrl = `${apiUrl}${video.video_url}`;
       const generatedSubtitleUrl = `${apiUrl}${video.subtitle_url}`;
       setVideoUrl(generatedVideoUrl);
@@ -926,9 +1014,21 @@ export default function CreatePage() {
                     }
                     className="w-fit rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-5 py-3 text-sm font-bold text-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-400/15 disabled:cursor-wait disabled:opacity-60"
                   >
-                    {voiceLoading ? "Generating Voice…" : "Generate Voice"}
+                    {voiceLoading
+                      ? voiceJobStatus === "queued"
+                        ? "Voice queued…"
+                        : "Generating Voice…"
+                      : "Generate Voice"}
                   </button>
                 </div>
+
+                {voiceLoading && (
+                  <p className="mt-4 text-sm text-emerald-300/80" role="status">
+                    {voiceJobStatus === "queued"
+                      ? "Your voice job is queued on the voice worker."
+                      : "Chatterbox is generating narration. This page will update automatically."}
+                  </p>
+                )}
 
                 {voiceError && (
                   <p className="mt-4 rounded-xl border border-red-800 bg-red-950/40 px-4 py-3 text-sm text-red-300">
@@ -1419,9 +1519,19 @@ export default function CreatePage() {
                     className="rounded-xl bg-cyan-300 px-6 py-3 font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {videoLoading
-                      ? `Rendering ${resolutionLabels[videoResolution]}…`
+                      ? videoJobStatus === "queued"
+                        ? `${resolutionLabels[videoResolution]} render queued…`
+                        : `Rendering ${resolutionLabels[videoResolution]}…`
                       : `Create ${resolutionLabels[videoResolution]} Video`}
                   </button>
+
+                  {videoLoading && (
+                    <p className="mt-3 text-sm text-cyan-200/80" role="status">
+                      {videoJobStatus === "queued"
+                        ? "Your render is queued. The page will begin tracking it automatically."
+                        : "HyperFrames and FFmpeg are rendering the final video. You can keep this page open."}
+                    </p>
+                  )}
 
                   {!audioId && (
                     <p className="mt-3 text-xs text-slate-500">

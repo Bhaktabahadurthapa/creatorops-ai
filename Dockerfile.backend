@@ -1,0 +1,67 @@
+FROM python:3.11-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium \
+    CONTAINER=true \
+    DATA_DIR=/workspace/data \
+    HF_HOME=/workspace/data/models \
+    XDG_CACHE_HOME=/workspace/data/cache \
+    CHATTERBOX_DEVICE=cuda \
+    PORT=8000
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    chromium \
+    curl \
+    ffmpeg \
+    fontconfig \
+    fonts-dejavu-core \
+    fonts-freefont-ttf \
+    fonts-liberation \
+    fonts-noto-cjk \
+    fonts-noto-color-emoji \
+    fonts-noto-core \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnss3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libxshmfence1 \
+    unzip \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -f
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable \
+    && corepack prepare pnpm@10.27.0 --activate \
+    && HYPERFRAMES_SKIP_SKILLS=1 pnpm install --frozen-lockfile --prod
+
+COPY backend/requirements-base.txt backend/requirements-gpu.txt ./backend/
+RUN python -m pip install --upgrade pip \
+    && python -m pip install -r backend/requirements-gpu.txt
+
+COPY backend ./backend
+RUN chmod +x /app/backend/start.sh
+
+WORKDIR /app/backend
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:' + __import__('os').environ.get('PORT', '8000') + '/health', timeout=3)"
+
+EXPOSE 8000
+
+CMD ["./start.sh"]

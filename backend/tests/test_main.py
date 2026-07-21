@@ -18,6 +18,7 @@ from app.main import (
     get_audio_output_dir,
     get_media_probe,
     get_media_uploads_dir,
+    get_job_store,
     get_openai_client,
     get_openai_model,
     get_video_output_dir,
@@ -28,6 +29,17 @@ from app.main import (
     get_voice_upload_path,
     normalize_voice_reference,
 )
+from app.config import (
+    get_audio_dir,
+    get_cors_origins,
+    get_data_dir,
+    get_jobs_dir,
+    get_model_cache_dir,
+    get_uploads_dir,
+    get_video_dir,
+    resolve_voice_reference_path,
+)
+from app.services.jobs import JobStore
 from app.services.voice import VoiceGenerationError, generate_audio
 from app.services.video.renderer import (
     AUTOMATIC_MOTIONS,
@@ -93,19 +105,14 @@ class FailingVoiceGenerator:
         raise VoiceGenerationError("Mock voice model failure")
 
 
-class FakeTTSModel:
+class FakeChatterboxModel:
     def __init__(self):
         self.calls: list[dict[str, object]] = []
+        self.sr = 24_000
 
-    def tts_to_file(self, **kwargs: object) -> None:
-        self.calls.append(kwargs)
-        output_path = Path(str(kwargs["file_path"]))
-
-        with wave.open(str(output_path), "wb") as audio_file:
-            audio_file.setnchannels(1)
-            audio_file.setsampwidth(2)
-            audio_file.setframerate(24_000)
-            audio_file.writeframes(b"\0\0" * 240)
+    def generate(self, text: str, **kwargs: object) -> object:
+        self.calls.append({"text": text, **kwargs})
+        return object()
 
 
 class FakeVoiceReferenceNormalizer:
@@ -176,7 +183,7 @@ def make_script(duration: int = 60) -> ScriptResponse:
     )
 
 
-def make_wav_bytes(duration_seconds: int = 2) -> bytes:
+def make_wav_bytes(duration_seconds: int = 6) -> bytes:
     wav_buffer = io.BytesIO()
     with wave.open(wav_buffer, "wb") as audio_file:
         audio_file.setnchannels(1)
@@ -209,12 +216,12 @@ class VoiceGeneratorUnitTests(unittest.TestCase):
             self.assertIn("pcm_s16le", commands[0])
             self.assertIn("24000", commands[0])
 
-    def test_generate_audio_uses_mocked_model_and_writes_wav(self) -> None:
+    def test_generate_audio_uses_mocked_chatterbox_and_writes_wav(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             reference_path = temp_path / "voice-reference.wav"
             output_path = temp_path / "output.wav"
-            fake_model = FakeTTSModel()
+            fake_model = FakeChatterboxModel()
 
             with wave.open(str(reference_path), "wb") as reference_file:
                 reference_file.setnchannels(1)
@@ -227,9 +234,24 @@ class VoiceGeneratorUnitTests(unittest.TestCase):
                 destination_path = Path(command[-1])
                 shutil.copyfile(source_path, destination_path)
 
+            def fake_save_waveform(
+                path: Path,
+                waveform: object,
+                sample_rate: int,
+            ) -> None:
+                del waveform
+                with wave.open(str(path), "wb") as audio_file:
+                    audio_file.setnchannels(1)
+                    audio_file.setsampwidth(2)
+                    audio_file.setframerate(sample_rate)
+                    audio_file.writeframes(b"\0\0" * 480)
+
             with patch(
                 "app.services.voice.generator.subprocess.run",
                 side_effect=fake_ffmpeg,
+            ), patch(
+                "app.services.voice.generator.save_waveform",
+                side_effect=fake_save_waveform,
             ):
                 result = generate_audio(
                     "# CreatorOps\n\nFirst scene. Second scene.",
@@ -242,8 +264,8 @@ class VoiceGeneratorUnitTests(unittest.TestCase):
             self.assertTrue(output_path.read_bytes().startswith(b"RIFF"))
             self.assertEqual(len(fake_model.calls), 2)
             self.assertEqual(fake_model.calls[0]["text"], "CreatorOps")
-            self.assertIsNotNone(fake_model.calls[0]["speaker_wav"])
-            self.assertIsNone(fake_model.calls[1]["speaker_wav"])
+            self.assertIsNotNone(fake_model.calls[0]["audio_prompt_path"])
+            self.assertIsNone(fake_model.calls[1]["audio_prompt_path"])
 
 
 class VideoServiceUnitTests(unittest.TestCase):
@@ -596,12 +618,77 @@ class VideoServiceUnitTests(unittest.TestCase):
             self.assertTrue(result.video_path.is_file())
 
 
+class DeploymentStorageUnitTests(unittest.TestCase):
+    def test_unset_data_dir_preserves_backend_local_paths(self) -> None:
+        with patch.dict(os.environ, {"DATA_DIR": ""}):
+            backend_dir = Path(__file__).resolve().parents[1]
+            self.assertEqual(get_data_dir(), backend_dir)
+            self.assertEqual(get_uploads_dir(), backend_dir / "uploads")
+            self.assertEqual(get_audio_dir(), backend_dir / "outputs" / "audio")
+            self.assertEqual(get_video_dir(), backend_dir / "outputs" / "video")
+
+    def test_data_dir_controls_all_persistent_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir).resolve()
+            with patch.dict(
+                os.environ,
+                {
+                    "DATA_DIR": temp_dir,
+                    "VOICE_REFERENCE_PATH": "private/my_voice.wav",
+                },
+            ):
+                self.assertEqual(get_data_dir(), data_dir)
+                self.assertEqual(
+                    resolve_voice_reference_path(),
+                    data_dir / "private" / "my_voice.wav",
+                )
+                self.assertEqual(get_uploads_dir(), data_dir / "uploads")
+                self.assertEqual(get_audio_dir(), data_dir / "outputs" / "audio")
+                self.assertEqual(get_video_dir(), data_dir / "outputs" / "video")
+                self.assertEqual(get_jobs_dir(), data_dir / "jobs")
+                self.assertEqual(
+                    get_model_cache_dir(),
+                    data_dir / "models",
+                )
+
+    def test_cors_origins_are_configurable(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"CORS_ORIGINS": "https://creatorops.vercel.app, http://localhost:3000/"},
+        ):
+            self.assertEqual(
+                get_cors_origins(),
+                ["https://creatorops.vercel.app", "http://localhost:3000"],
+            )
+
+    def test_job_store_persists_status_transitions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = JobStore(Path(temp_dir))
+            job = store.create("video")
+
+            self.assertEqual(store.get(job.job_id).status, "queued")
+            self.assertEqual(store.set_processing(job.job_id).status, "processing")
+
+            completed = store.complete(
+                job.job_id,
+                {"video_id": str(uuid4()), "video_url": "/api/video/example"},
+            )
+            self.assertEqual(completed.status, "completed")
+            self.assertIsNone(completed.error)
+            self.assertEqual(store.get(job.job_id).result, completed.result)
+            self.assertEqual(
+                (Path(temp_dir) / f"{job.job_id}.json").stat().st_mode & 0o777,
+                0o600,
+            )
+
+
 class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.audio_output_dir = Path(self.temp_dir.name) / "audio"
         self.video_output_dir = Path(self.temp_dir.name) / "video"
         self.media_uploads_dir = Path(self.temp_dir.name) / "uploads"
+        self.jobs_dir = Path(self.temp_dir.name) / "jobs"
         self.voice_reference = Path(self.temp_dir.name) / "voice-reference.wav"
         self.voice_reference.touch()
         self.fake_voice_generator = FakeVoiceGenerator()
@@ -627,17 +714,32 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
         app.dependency_overrides[get_media_probe] = lambda: self.fake_media_probe
         app.dependency_overrides[get_video_output_dir] = lambda: self.video_output_dir
         app.dependency_overrides[get_video_renderer] = lambda: self.fake_video_renderer
+        app.dependency_overrides[get_job_store] = lambda: JobStore(self.jobs_dir)
 
     async def asyncTearDown(self) -> None:
         await self.client.aclose()
         app.dependency_overrides.clear()
         self.temp_dir.cleanup()
 
+    async def get_job(self, submission: dict[str, object]) -> dict[str, object]:
+        status_response = await self.client.get(str(submission["status_url"]))
+        self.assertEqual(status_response.status_code, 200)
+        return status_response.json()
+
     async def test_health_check_is_preserved(self) -> None:
         response = await self.client.get("/health")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "healthy"})
+
+    async def test_ready_does_not_load_voice_model(self) -> None:
+        with patch("app.services.voice.generator.load_voice_model") as model_loader:
+            response = await self.client.get("/ready")
+
+        self.assertIn(response.status_code, {200, 503})
+        self.assertIn(response.json()["status"], {"ready", "degraded"})
+        self.assertEqual(response.json()["voice_model"], "lazy")
+        model_loader.assert_not_called()
 
     async def test_generate_script_returns_structured_response(self) -> None:
         response = await self.client.post(
@@ -767,8 +869,14 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
             json={"text": "CreatorOps AI turns narration into audio."},
         )
 
-        self.assertEqual(response.status_code, 201)
-        response_body = response.json()
+        self.assertEqual(response.status_code, 202)
+        submission = response.json()
+        self.assertEqual(submission["status"], "queued")
+        self.assertEqual(submission["job_type"], "voice")
+        job = await self.get_job(submission)
+        self.assertEqual(job["status"], "completed")
+        response_body = job["result"]
+        self.assertIsInstance(response_body, dict)
         self.assertEqual(len(self.fake_voice_generator.calls), 1)
         narration, output_path, reference_path = self.fake_voice_generator.calls[0]
         self.assertEqual(narration, "CreatorOps AI turns narration into audio.")
@@ -910,8 +1018,14 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-        self.assertEqual(render_response.status_code, 201)
-        render_result = render_response.json()
+        self.assertEqual(render_response.status_code, 202)
+        submission = render_response.json()
+        self.assertEqual(submission["status"], "queued")
+        self.assertEqual(submission["job_type"], "video")
+        job = await self.get_job(submission)
+        self.assertEqual(job["status"], "completed")
+        render_result = job["result"]
+        self.assertIsInstance(render_result, dict)
         self.assertEqual(render_result["status"], "completed")
         self.assertEqual(render_result["resolution"], "720p")
         self.assertEqual(
@@ -1008,7 +1122,9 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 202)
+        job = await self.get_job(response.json())
+        self.assertEqual(job["status"], "completed")
         self.assertEqual(len(self.fake_video_renderer.calls), 1)
         scene = self.fake_video_renderer.calls[0]["scenes"][0]
         self.assertIsNone(scene.media_path)
@@ -1053,7 +1169,9 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 202)
+        job = await self.get_job(response.json())
+        self.assertEqual(job["status"], "completed")
         scenes = self.fake_video_renderer.calls[0]["scenes"]
         self.assertEqual([scene.media_type for scene in scenes], ["generated", "image"])
         self.assertIsNone(scenes[0].media_path)
@@ -1113,8 +1231,10 @@ class CreatorOpsAPITests(unittest.IsolatedAsyncioTestCase):
             json={"text": "A valid narration."},
         )
 
-        self.assertEqual(response.status_code, 503)
-        self.assertIn("temporarily unavailable", response.json()["detail"])
+        self.assertEqual(response.status_code, 202)
+        job = await self.get_job(response.json())
+        self.assertEqual(job["status"], "failed")
+        self.assertIn("temporarily unavailable", str(job["error"]))
 
     async def test_missing_audio_identifier_returns_not_found(self) -> None:
         response = await self.client.get(
