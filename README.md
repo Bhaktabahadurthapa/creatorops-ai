@@ -45,8 +45,8 @@
 ## System Flow
 
 <p align="center">
-  <a href="docs/images/creatorops-ai-system-flow.svg">
-    <img src="docs/images/creatorops-ai-system-flow.svg" width="100%" alt="CreatorOps AI end-to-end system flow">
+  <a href="docs/images/creatorops-ai-system-flow-v2.png">
+    <img src="docs/images/creatorops-ai-system-flow-v2.png" width="100%" alt="CreatorOps AI end-to-end system flow">
   </a>
 </p>
 
