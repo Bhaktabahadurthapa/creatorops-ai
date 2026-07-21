@@ -38,6 +38,22 @@
 
 <p align="center"><sub>▶ Click the preview to play the demo</sub></p>
 
+### Generated Output Proof
+
+The checked-in artifacts below came from the same successful 8.98-second
+CreatorOps AI generation run.
+
+<p align="center">
+  <a href="docs/demo-proof/creatorops-generated-demo.mp4">
+    <img src="docs/demo-proof/creatorops-generated-demo-preview.jpg" width="720" alt="Generated CreatorOps AI presenter video">
+  </a>
+</p>
+
+| Artifact | Verified format |
+| --- | --- |
+| [Rendered video (MP4)](docs/demo-proof/creatorops-generated-demo.mp4) | 8.98 seconds, 1280×720, H.264 video with AAC audio |
+| [Generated narration (WAV)](docs/demo-proof/creatorops-generated-narration.wav) | 8.98 seconds, 24 kHz, mono PCM audio |
+
 **Live frontend:** https://creatorops-ai-one.vercel.app
 
 > **Deployment limitation:** The frontend is deployed on Vercel. Full AI generation
