@@ -37,9 +37,8 @@
   call-to-action, and timed scenes.
 - Updated the Create page to display the complete production blueprint and
   scene-by-scene visual direction, narration, subtitles, and timing.
-- Adapted the minimum reusable XTTS voice-generation logic from the existing
-  authorized custom-voice project without copying its UI, recordings, models,
-  generated media, or development environment.
+- Integrated the first authorized custom-voice workflow with private reference
+  upload, private storage, playback, and download support.
 - Added `POST /api/voice/generate` for narration generation and
   `GET /api/voice/audio/{audio_id}` for safe playback and WAV downloads.
 - Added a private voice-reference upload workflow with readiness status,
@@ -51,14 +50,11 @@
 - Kept `backend/.env`, `frontend/.env.local`, `backend/private/`, generated
   audio, downloaded models, and API keys out of Git.
 - Added backend coverage with mocked OpenAI and voice-model clients so tests do
-  not call OpenAI or load XTTS.
+  not call OpenAI or load Chatterbox Turbo.
 - Confirmed 17 backend tests and 4 subtests pass.
 - Confirmed frontend lint and the Next.js production build pass.
 - Published the work on the `integrate-voice` branch and opened draft pull
   request #2 for review before merging into `main`.
-- Pending: upload a real authorized reference WAV and verify one end-to-end XTTS
-  narration locally.
-
 - Integrated the authorized custom-voice generation module.
 - Added a voice-generation API endpoint.
 - Added secure voice-reference configuration.
@@ -69,6 +65,13 @@
 
 ## July 20, 2026
 
+- Replaced the previous voice engine with MIT-licensed Chatterbox Turbo while
+  preserving authorized reference upload, private storage, playback, downloads,
+  and asynchronous job polling.
+- Added automatic CUDA, Apple MPS, and CPU device selection, persistent
+  Hugging Face model caching, watermarked generation, and PCM WAV output.
+- Removed the previous engine's license-acceptance configuration and kept all
+  expensive Chatterbox inference mocked in automated tests.
 - Established the CreatorOps AI brand promise, “Your idea. Your voice. Your
   finished video.”, and aligned website, API, package, social, and repository
   descriptions around the complete idea-to-HD-video workflow.

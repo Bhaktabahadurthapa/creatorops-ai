@@ -41,7 +41,7 @@
 <p align="center"><sub>Idea → Script → Voice → Media → Video → Project</sub></p>
 
 CreatorOps AI is a local-first, full-stack AI video production platform built
-with Next.js, FastAPI, OpenAI, XTTS, HyperFrames, and FFmpeg. It brings the
+with Next.js, FastAPI, OpenAI, Chatterbox Turbo, HyperFrames, and FFmpeg. It brings the
 complete idea-to-video workflow into one focused creator experience.
 
 | Start with | CreatorOps AI handles | Export |
@@ -117,7 +117,7 @@ CreatorOps AI combines the complete production workflow into one application.
 - Accepts a content idea, platform, tone, and duration.
 - Uses the OpenAI Responses API to generate a validated structured script.
 - Produces a title, hook, narration, call to action, subtitles, and timed scene plan.
-- Generates narration from an authorized voice reference using XTTS.
+- Generates narration from an authorized voice reference using Chatterbox Turbo.
 - Allows users to upload images, short video clips, a logo, and background music.
 - Generates animated text scenes when no media is uploaded.
 - Adds zoom, pan, fades, and crossfade transitions to still images.
@@ -155,7 +155,9 @@ CreatorOps AI combines the complete production workflow into one application.
 
 **What:** Converts narration into WAV audio using an authorized voice reference.
 
-**How:** XTTS processes a private reference recording and generates normalized speech.
+**How:** Chatterbox Turbo performs zero-shot voice cloning from a private
+reference recording, watermarks its generated audio, and exports normalized
+WAV speech.
 
 **Why:** Creators can use a consistent voice without recording every script manually.
 
@@ -248,7 +250,7 @@ CreatorOps AI combines the complete production workflow into one application.
 - Pydantic request and response validation
 - Secure upload-path validation
 - Mocked OpenAI tests
-- Mocked XTTS tests
+- Mocked Chatterbox Turbo tests
 - Mocked FFmpeg and HyperFrames tests
 - Real FFmpeg smoke tests
 - Frontend lint checks
@@ -271,7 +273,7 @@ FastAPI API and orchestration
    ↓
 OpenAI structured script and scene plan
    ↓
-XTTS authorized narration WAV
+Chatterbox Turbo authorized narration WAV
    ↓
 Uploaded media or generated text scenes
    ↓
@@ -309,7 +311,7 @@ Projects page and Dashboard
 
 - OpenAI Responses API
 - Structured Outputs
-- Coqui XTTS
+- [Chatterbox Turbo](https://github.com/resemble-ai/chatterbox) 0.1.7
 - Transformers
 
 ### Video and audio
@@ -323,7 +325,7 @@ Projects page and Dashboard
 
 - Pytest
 - HTTPX
-- Mocked OpenAI, XTTS, FFmpeg, and HyperFrames integrations
+- Mocked OpenAI, Chatterbox Turbo, FFmpeg, and HyperFrames integrations
 - ESLint
 - Next.js production build
 
@@ -405,6 +407,7 @@ http://localhost:3000
 OPENAI_API_KEY=your_real_openai_api_key
 OPENAI_MODEL=your_available_model_id
 VOICE_REFERENCE_PATH=private/my_voice.wav
+CHATTERBOX_DEVICE=auto
 ```
 
 ### Frontend: `frontend/.env.local`
@@ -483,6 +486,11 @@ VOICE_REFERENCE_PATH=private/my_voice.wav
 - Minimal background noise
 - Consistent volume
 - Natural speaking style
+
+`CHATTERBOX_DEVICE=auto` selects NVIDIA CUDA first, Apple MPS on compatible
+Macs, and CPU as a fallback. Vast.ai GPU deployments should use `cuda`. The first
+generation downloads several gigabytes of model assets into the model cache;
+later requests reuse the loaded model.
 
 ---
 
@@ -590,8 +598,9 @@ Suggested length: 2–3 minutes.
 ## Known Limitations
 
 - The complete system currently runs locally.
-- XTTS and video rendering are CPU-intensive.
-- Rendering runs synchronously and can block the request.
+- Chatterbox Turbo and video rendering are compute- and memory-intensive.
+- Voice and video jobs run in-process; a backend restart can interrupt active
+  jobs even though job metadata is stored on disk.
 - Project metadata is stored in browser localStorage, not a database.
 - Clearing browser storage removes the local project list.
 - Generated backend files do not yet have automatic expiration or cleanup.
@@ -628,7 +637,7 @@ Codex supported the development workflow by helping to:
 
 - Build and connect the Next.js and FastAPI applications
 - Integrate structured OpenAI responses
-- Adapt the authorized XTTS voice module
+- Adapt the authorized Chatterbox Turbo voice module
 - Adapt and improve the FFmpeg rendering pipeline
 - Implement upload validation and path security
 - Add image motion, transitions, and generated scenes
@@ -648,13 +657,14 @@ Codex supported the development workflow by helping to:
 ## Deployment
 
 The Next.js frontend can be deployed to Vercel through the included production
-GitHub Action. The FastAPI, XTTS, and FFmpeg backend must be hosted separately
-and exposed through HTTPS before the deployed frontend can generate scripts,
-voice, or video.
+GitHub Action. The FastAPI, GPU-enabled Chatterbox Turbo, HyperFrames, and FFmpeg backend is
+packaged for a Vast.ai GPU instance with persistent storage and asynchronous render
+job polling.
 
 See [Deploying CreatorOps AI with Vercel](docs/VERCEL_DEPLOYMENT.md) for the
 required Vercel project settings, GitHub secrets, backend URL, safety switch,
-and deployment workflow.
+and deployment workflow. See the [Vast.ai backend guide](docs/VAST_DEPLOYMENT.md)
+for the Docker build, Pod volume, environment, port, and readiness setup.
 
 ---
 
@@ -666,7 +676,7 @@ and deployment workflow.
 - [x] FastAPI backend
 - [x] OpenAI structured script generation
 - [x] Timed scene planning
-- [x] Authorized XTTS narration
+- [x] Authorized Chatterbox Turbo narration
 - [x] Media upload
 - [x] Animated image motion
 - [x] Generated text scenes
@@ -690,7 +700,7 @@ and deployment workflow.
 
 - [ ] Refactor routes, schemas, configuration, and services into separate modules
 - [ ] Add Redis and a background job queue
-- [ ] Add render progress polling
+- [x] Add render progress polling
 - [ ] Add automatic file cleanup
 - [ ] Add structured logging and monitoring
 - [ ] Add rate limiting
@@ -732,7 +742,8 @@ Only reusable service logic was adapted into CreatorOps AI. The original project
 
 - Use only voices you own or have permission to use.
 - Do not use generated audio to impersonate or deceive others.
-- Review OpenAI, Coqui XTTS, HyperFrames, and FFmpeg licenses before commercial use.
+- Chatterbox Turbo is distributed under the MIT license; retain required
+  third-party notices when redistributing substantial portions of it.
 - Protect API keys, private voice references, uploaded media, and generated outputs.
 
 ---

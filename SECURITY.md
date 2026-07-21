@@ -33,7 +33,7 @@ the report. Use redacted examples and minimal test files.
   variables.
 - Validate uploaded file types, sizes, media streams, filenames, and paths.
 - Use only voices owned by the user or used with explicit authorization.
-- Keep unit tests isolated from real OpenAI, XTTS, HyperFrames, and FFmpeg work.
+- Keep unit tests isolated from real OpenAI, Chatterbox Turbo, HyperFrames, and FFmpeg work.
 
 ## Disclosure
 

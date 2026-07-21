@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import tempfile
@@ -6,38 +7,97 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from app.config import get_model_cache_dir
 
-XTTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
-SPEAKER_NAME = "my_voice"
-SPEECH_SPEED = 1.04
+
 SHORT_PAUSE_MS = 180
 PARAGRAPH_PAUSE_MS = 350
 
-_TTS: Any | None = None
+_MODEL: Any | None = None
 
 
 class VoiceGenerationError(RuntimeError):
     """Raised when the local voice model cannot produce a usable WAV file."""
 
 
-def load_tts_model() -> Any:
-    """Load XTTS on first use and reuse it for later requests."""
-    global _TTS
+def load_voice_model() -> Any:
+    """Load Chatterbox Turbo on first use and reuse it for later requests."""
+    global _MODEL
 
-    if _TTS is None:
+    if _MODEL is None:
+        model_cache_dir = get_model_cache_dir()
+        model_cache_dir.mkdir(parents=True, exist_ok=True)
+        os.environ.setdefault("HF_HOME", str(model_cache_dir))
+        os.environ.setdefault(
+            "HUGGINGFACE_HUB_CACHE",
+            str(model_cache_dir / "hub"),
+        )
+
         try:
-            from TTS.api import TTS
+            import torch
+            from chatterbox.tts_turbo import ChatterboxTurboTTS
         except ImportError as exc:
             raise VoiceGenerationError(
                 "Voice model dependencies are not installed."
             ) from exc
 
         try:
-            _TTS = TTS(model_name=XTTS_MODEL, progress_bar=False).to("cpu")
+            configured_device = os.getenv(
+                "CHATTERBOX_DEVICE", "auto"
+            ).strip().lower()
+            if configured_device not in {"auto", "cpu", "mps", "cuda"}:
+                raise VoiceGenerationError(
+                    "CHATTERBOX_DEVICE must be one of: auto, cpu, mps, or cuda."
+                )
+
+            mps_available = bool(
+                getattr(torch.backends, "mps", None)
+                and torch.backends.mps.is_available()
+            )
+            if configured_device == "auto":
+                if torch.cuda.is_available():
+                    device = "cuda"
+                elif mps_available:
+                    device = "mps"
+                else:
+                    device = "cpu"
+            else:
+                device = configured_device
+
+            if device == "cuda" and not torch.cuda.is_available():
+                raise VoiceGenerationError(
+                    "CHATTERBOX_DEVICE is cuda but no CUDA GPU is available."
+                )
+            if device == "mps" and not mps_available:
+                raise VoiceGenerationError(
+                    "CHATTERBOX_DEVICE is mps but Apple MPS is unavailable."
+                )
+
+            _MODEL = ChatterboxTurboTTS.from_pretrained(device=device)
+        except VoiceGenerationError:
+            raise
         except Exception as exc:
             raise VoiceGenerationError("The voice model could not be loaded.") from exc
 
-    return _TTS
+    return _MODEL
+
+
+def save_waveform(path: Path, waveform: Any, sample_rate: int) -> None:
+    """Write a generated Chatterbox tensor as a WAV file."""
+    try:
+        import torchaudio
+    except ImportError as exc:
+        raise VoiceGenerationError(
+            "Voice audio dependencies are not installed."
+        ) from exc
+
+    torchaudio.save(
+        str(path),
+        waveform,
+        sample_rate,
+        encoding="PCM_S",
+        bits_per_sample=16,
+    )
 
 
 def clean_script(text: str) -> str:
@@ -94,7 +154,7 @@ def generate_audio(
     text: str,
     output_path: Path,
     reference_path: Path,
-    model_loader: Callable[[], Any] = load_tts_model,
+    model_loader: Callable[[], Any] = load_voice_model,
 ) -> Path:
     """Generate a WAV file with the configured reference voice."""
     cleaned_text = clean_script(text)
@@ -144,23 +204,13 @@ def generate_audio(
 
                 for index, (chunk, pause_ms) in enumerate(chunks, start=1):
                     chunk_path = temp_path / f"chunk_{index:04d}.wav"
-                    tts.tts_to_file(
-                        text=chunk,
-                        speaker=SPEAKER_NAME,
-                        speaker_wav=str(normalized_voice) if index == 1 else None,
-                        language="en",
-                        file_path=str(chunk_path),
-                        split_sentences=False,
-                        temperature=0.75,
-                        repetition_penalty=5.0,
-                        top_k=50,
-                        top_p=0.85,
-                        speed=SPEECH_SPEED,
-                        sound_norm_refs=True,
-                        gpt_cond_len=13,
-                        gpt_cond_chunk_len=6,
-                        max_ref_len=20,
+                    waveform = tts.generate(
+                        chunk,
+                        audio_prompt_path=(
+                            str(normalized_voice) if index == 1 else None
+                        ),
                     )
+                    save_waveform(chunk_path, waveform, int(tts.sr))
 
                     with wave.open(str(chunk_path), "rb") as chunk_wav:
                         chunk_format = (
