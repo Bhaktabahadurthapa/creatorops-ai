@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://creatorops-ai-one.vercel.app"><strong>Live Frontend</strong></a> ·
-  <a href="docs/media/creatorops-ai-demo.mp4?raw=1"><strong>Demo Video</strong></a> ·
+  <a href="https://cdn.jsdelivr.net/gh/Bhaktabahadurthapa/creatorops-ai@main/docs/media/creatorops-ai-demo.mp4"><strong>Demo Video</strong></a> ·
   <a href="docs/VAST_DEPLOYMENT.md">GPU Backend Guide</a>
 </p>
 
@@ -31,7 +31,7 @@
 ## Demo
 
 <p align="center">
-  <a href="docs/media/creatorops-ai-demo.mp4?raw=1">
+  <a href="https://cdn.jsdelivr.net/gh/Bhaktabahadurthapa/creatorops-ai@main/docs/media/creatorops-ai-demo.mp4">
     <img src="docs/images/creatorops-ai-demo-preview.jpg" width="100%" alt="Play the CreatorOps AI demo video">
   </a>
 </p>
