@@ -18,7 +18,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Bhaktabahadurthapa/creatorops-ai/actions/workflows/ci.yml"><img src="https://github.com/Bhaktabahadurthapa/creatorops-ai/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-8b5cf6" alt="MIT license"></a>
+  <a href="https://github.com/Bhaktabahadurthapa/creatorops-ai/releases"><img src="https://img.shields.io/github/v/release/Bhaktabahadurthapa/creatorops-ai?display_name=tag&amp;sort=semver" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Next.js-16-020617" alt="Next.js 16">
   <img src="https://img.shields.io/badge/FastAPI-Python_3.10%2B-009688" alt="FastAPI and Python 3.10 or newer">
   <img src="https://img.shields.io/badge/OpenAI-Responses_%2B_Image_API-10a37f" alt="OpenAI APIs">
@@ -37,6 +39,17 @@
 </p>
 
 <p align="center"><sub>▶ Click the preview to play the demo on YouTube</sub></p>
+
+### Product preview
+
+<p align="center">
+  <a href="progress/2026-07-17-frontend-complete.png.png">
+    <img src="progress/2026-07-17-frontend-complete.png.png" width="100%" alt="CreatorOps AI product landing page">
+  </a>
+</p>
+
+The public frontend demonstrates the product workflow and interface. Features that
+generate scripts, narration, media or rendered video require the FastAPI backend.
 
 ---
 
@@ -479,15 +492,17 @@ npm run lint
 npm run build
 ```
 
-### Current CI coverage
+### Continuous integration
 
-The current GitHub Actions workflow installs the frontend dependencies, runs the
-frontend linter, builds the Vercel artifacts, and deploys the frontend to Vercel.
-It does not run the backend `pytest` suite.
+The `CI` GitHub Actions workflow runs on every pull request and on pushes to `main`:
 
-Backend tests have been run separately and can be reproduced using the commands
-above. Adding backend tests to GitHub Actions is a planned improvement, but it is
-not required for the current submission.
+- Backend unit and API tests on Python 3.11 with FFmpeg installed.
+- Frontend linting on Node.js 22.
+- Next.js production build validation.
+
+Deployment remains separate from CI: the Vercel workflow deploys only when the
+production deployment variable is enabled, and the GPU workflow publishes the
+backend image only when its Docker Hub credentials are configured.
 
 ### Manual end-to-end test
 
